@@ -94,9 +94,9 @@ const config = {
     app: {
         // Three secret API keys — one per environment. All required.
         secretKeys: {
-            live: process.env.STRIPE_APP_SECRET_KEY_LIVE!,
-            test: process.env.STRIPE_APP_SECRET_KEY_TEST!,
-            managed_sandbox: process.env.STRIPE_APP_SECRET_KEY_MANAGED_SANDBOX!,
+            live: process.env.STRIPE_SECRET_KEY_LIVE!,
+            test: process.env.STRIPE_SECRET_KEY_TEST!,
+            managed_sandbox: process.env.STRIPE_SECRET_KEY_MANAGED_SANDBOX!,
         },
         // Webhook signing secrets, split by scope:
         //   connected = events on connected accounts (your users) — required.
@@ -105,15 +105,15 @@ const config = {
         //               Managed sandbox has no `account` scope.
         webhookSecrets: {
             live: {
-                connected: process.env.STRIPE_APP_WEBHOOK_SECRET_LIVE_CONNECTED!,
-                account: process.env.STRIPE_APP_WEBHOOK_SECRET_LIVE_ACCOUNT, // optional
+                connected: process.env.STRIPE_WEBHOOK_SECRET_LIVE_CONNECTED!,
+                account: process.env.STRIPE_WEBHOOK_SECRET_LIVE_ACCOUNT, // optional
             },
             test: {
-                connected: process.env.STRIPE_APP_WEBHOOK_SECRET_TEST_CONNECTED!,
-                account: process.env.STRIPE_APP_WEBHOOK_SECRET_TEST_ACCOUNT, // optional
+                connected: process.env.STRIPE_WEBHOOK_SECRET_TEST_CONNECTED!,
+                account: process.env.STRIPE_WEBHOOK_SECRET_TEST_ACCOUNT, // optional
             },
             managed_sandbox: {
-                connected: process.env.STRIPE_APP_WEBHOOK_SECRET_MANAGED_SANDBOX_CONNECTED!,
+                connected: process.env.STRIPE_WEBHOOK_SECRET_MANAGED_SANDBOX_CONNECTED!,
             },
         },
     },
@@ -277,7 +277,7 @@ export function getWebhookSecret(
         const secret = config.app.webhookSecrets[environment].account;
         if (!secret) {
             throw new Error(
-                `[stripe] Missing STRIPE_APP_WEBHOOK_SECRET_${environment.toUpperCase()}_ACCOUNT. ` +
+                `[stripe] Missing STRIPE_WEBHOOK_SECRET_${environment.toUpperCase()}_ACCOUNT. ` +
                 `Set it to verify account-scope webhooks, or use scope: "connected".`,
             );
         }
@@ -354,16 +354,16 @@ export function isBillingAccountConfigured(): boolean {
 //  keys (pk_*) are not used here — those belong on the client side.
 //
 //  Required (app account):
-//    STRIPE_APP_SECRET_KEY_LIVE
-//    STRIPE_APP_SECRET_KEY_TEST
-//    STRIPE_APP_SECRET_KEY_MANAGED_SANDBOX
-//    STRIPE_APP_WEBHOOK_SECRET_LIVE_CONNECTED
-//    STRIPE_APP_WEBHOOK_SECRET_TEST_CONNECTED
-//    STRIPE_APP_WEBHOOK_SECRET_MANAGED_SANDBOX_CONNECTED
+//    STRIPE_SECRET_KEY_LIVE
+//    STRIPE_SECRET_KEY_TEST
+//    STRIPE_SECRET_KEY_MANAGED_SANDBOX
+//    STRIPE_WEBHOOK_SECRET_LIVE_CONNECTED
+//    STRIPE_WEBHOOK_SECRET_TEST_CONNECTED
+//    STRIPE_WEBHOOK_SECRET_MANAGED_SANDBOX_CONNECTED
 //
 //  Optional (app account self-event webhooks):
-//    STRIPE_APP_WEBHOOK_SECRET_LIVE_ACCOUNT
-//    STRIPE_APP_WEBHOOK_SECRET_TEST_ACCOUNT
+//    STRIPE_WEBHOOK_SECRET_LIVE_ACCOUNT
+//    STRIPE_WEBHOOK_SECRET_TEST_ACCOUNT
 //
 //  Optional (separate billing account):
 //    STRIPE_BILLING_SECRET_KEY_LIVE

@@ -20,7 +20,7 @@ dist/
 build/
 *.tsbuildinfo
 .turbo/
-.
+.build/
 
 # Vercel
 .vercel/

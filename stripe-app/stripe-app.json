@@ -1,9 +1,9 @@
 {
+  "$schema": "https://stripe.com/stripe-app.schema.json",
   "id": "com.productivity.community-example",
-  "version": "0.1.0",
   "name": "Community Example",
+  "version": "0.1.0",
   "icon": "./app_icon.png",
-  "permissions": [],
   "ui_extension": {
     "views": [
       {
@@ -11,12 +11,13 @@
         "component": "App"
       }
     ],
-    "actions": [],
     "content_security_policy": {
-      "connect-src": null,
-      "image-src": null,
-      "purpose": ""
+      "connect-src": [
+        "https://your-backend.example.com/api/"
+      ],
+      "purpose": "Connects to the companion Next.js backend to demonstrate signed-request authentication between a Stripe App and its backend."
     }
   },
-  "post_install_action": null
+  "extensions": null,
+  "distribution_type": "private"
 }

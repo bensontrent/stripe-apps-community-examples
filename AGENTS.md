@@ -33,8 +33,22 @@ All addressed 2026-07-05, except one leftover file:
 - **Better Auth mapping is non-default:** `src/lib/auth.ts` maps Better Auth's `user`/`session`/`account`/`verification` models onto our plural table names with `uuid` ids (`generateId: () => crypto.randomUUID()`). Better Auth's own defaults are singular names + text ids — that's what the deleted `auth-schema.ts` contained. When changing the four auth tables, keep the columns Better Auth expects and don't regenerate/wire in the CLI's schema file.
 - ~~`git init` before schema changes~~ — **DONE (2026-07-05):** repo initialized on `main` with initial commit `d0a71d6`. Verified `.gitignore` works: `node_modules/` and `.env.local` do not appear in `git status`. Note the initial commit predates the 2026-07-05 quirk fixes (app rename, stripe 21 bump, setup.sql workflow, auth-schema.ts deletion) — those are uncommitted in the working tree and should be the next commit.
 
+## Authentication framework (added 2026-07-05)
+
+`nextjs-backend/src/proxy.ts` is now a multi-flavor auth router (Next.js 16 "proxy" = the old middleware). Full docs in `nextjs-backend/AUTHENTICATION.md`. The pieces:
+
+- `src/lib/proxy-auth.ts` — verification helpers: Stripe App signature (`stripe-signature` header vs `STRIPE_APP_SECRET`), bearer keys (`BEARER_TOKEN_KEYS`/`CRON_SECRET`), dev-only key (`DEV_API_KEY`, NODE_ENV=development only), user API keys (stubbed TODO — future DB lookup), CORS helpers.
+- `src/lib/url-token.ts` — short-lived JWT-in-URL tokens (`jose`, HS256, `URL_TOKEN_SECRET`), verified at the route level; path + account bound.
+- Example routes, one per flavor: `/api/stripe-app/me` (signature), `/api/stripe-app/token` (mints URL tokens), `/api/public/download` (JWT-in-URL, public in proxy), `/api/cron` (bearer-only).
+- The proxy strips `x-auth-type`/`x-stripe-verified` from incoming requests and sets them after verification — routes trust them; never remove that stripping.
+- Ported from Parcelcraft's `middleware.ts`/`auth.ts` references; Firebase intentionally dropped (Better Auth is the session layer).
+- `.env.example` was rewritten and now matches `lib/stripe.ts` (it was stale) plus the new auth vars; `src/types/env.d.ts` matches.
+- `stripe-app/src/api/backend.ts` — signed-fetch client (`fetchStripeSignature`) with example calls; `stripe-app.json` CSP `connect-src` now lists `http://localhost:3000/api/` + a placeholder https URL users must replace before publishing.
+- New dep: `jose` in nextjs-backend.
+
 ## Suggested next session tasks
 
-1. Commit the pending working-tree changes (quirk fixes + schema workflow — see `git status`). Note: `nextjs-backend/` has no `package-lock.json` right now (deleted during cleanup, not yet regenerated); a root `npm install` will recreate it — commit lockfiles for reproducible installs.
-2. Wire the Stripe App to actually call the backend (add `connect-src` in `stripe-app.json` CSP → the Vercel/localhost backend URL, and use `fetchStripeSignature` for signed requests).
-3. Optional: add a top-level `docs/` or slides link for the meetup.
+1. Commit the pending working-tree changes (quirk fixes + schema workflow + auth framework — see `git status`). Commit lockfiles for reproducible installs.
+2. Frontend examples in the Stripe App UI: a view that calls `getMe()`/`createDownloadLink()` from `src/api/backend.ts`; a Better Auth login flow (model on Parcelcraft `Login.tsx`, minus Firebase); an API-key Settings view using `stripe.apps.secrets` (model on rtk-mobile `Settings.tsx`).
+3. Future work: user API keys table in `schema.ts` (hashed keys) + DB lookup in `verifyApiKey()` — remember `npm run db:generate` after schema changes.
+4. Optional: add a top-level `docs/` or slides link for the meetup.

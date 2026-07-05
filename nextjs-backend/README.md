@@ -9,7 +9,7 @@ A complete Next.js API backend with authentication (Better Auth + Supabase) and 
 - 💳 **Stripe Integration**: Webhook handling, customer & subscription management
 - 🎯 **Stripe App Support**: API endpoints for Stripe App installations
 - 👤 **User Account Page**: Complete account management UI
-- 🔒 **Protected Routes**: Middleware-based authentication
+- 🔒 **Protected Routes**: Proxy-based authentication in several flavors — Better Auth sessions, Stripe App signatures, bearer tokens, a dev-only API key, and JWT-in-URL tokens (see [AUTHENTICATION.md](AUTHENTICATION.md))
 - 🎨 **Modern Stack**: Next.js 16, TypeScript, Tailwind CSS
 
 ## Project Structure
@@ -20,8 +20,11 @@ backend/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── auth/[...all]/     # Better Auth endpoints
-│   │   │   ├── stripe/webhook/    # Stripe webhook handler
-│   │   │   └── protected/         # Protected API routes
+│   │   │   ├── stripe/webhook/    # Stripe webhook handler (route-level auth)
+│   │   │   ├── stripe-app/        # Stripe App signed-request routes
+│   │   │   ├── public/            # Public routes with JWT-in-URL auth
+│   │   │   ├── cron/              # Bearer-token-only route
+│   │   │   └── protected/         # Session-protected API routes
 │   │   ├── account/               # User account page
 │   │   ├── login/                 # Login/signup page
 │   │   └── page.tsx               # Home page
@@ -31,8 +34,10 @@ backend/
 │   ├── lib/
 │   │   ├── auth.ts                # Better Auth server config
 │   │   ├── auth-client.ts         # Better Auth client hooks
-│   │   └── supabase.ts            # Supabase client
-│   └── middleware.ts              # Auth middleware
+│   │   ├── proxy-auth.ts          # Proxy auth helpers (all flavors)
+│   │   ├── url-token.ts           # Short-lived JWT-in-URL tokens
+│   │   └── stripe.ts              # Stripe clients & webhook secrets
+│   └── proxy.ts                   # Auth proxy (Next.js 16 middleware)
 ├── drizzle.config.ts              # Drizzle configuration
 ├── .env.local                     # Environment variables
 └── package.json
@@ -69,10 +74,22 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 BETTER_AUTH_SECRET=your-secret-key-min-32-chars
 BETTER_AUTH_URL=http://localhost:3000
 
-# Stripe
-STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key
+# Stripe (see src/lib/stripe.ts for the full list, incl. optional vars)
+STRIPE_APP_SECRET_KEY_LIVE=sk_live_...
+STRIPE_APP_SECRET_KEY_TEST=sk_test_...
+STRIPE_APP_SECRET_KEY_MANAGED_SANDBOX=sk_test_...
+STRIPE_APP_WEBHOOK_SECRET_LIVE_CONNECTED=whsec_...
+STRIPE_APP_WEBHOOK_SECRET_TEST_CONNECTED=whsec_...
+STRIPE_APP_WEBHOOK_SECRET_MANAGED_SANDBOX_CONNECTED=whsec_...
+
+# Proxy authentication (see AUTHENTICATION.md)
+STRIPE_APP_SECRET=absec_...          # Stripe App signing secret — only
+                                     # exists after `stripe apps upload`
+                                     # (uploading does NOT publish the app)
+BEARER_TOKEN_KEYS=key-one,key-two    # Authorization: Bearer keys
+CRON_SECRET=your-cron-secret         # sent by Vercel cron jobs
+DEV_API_KEY=local-dev-only-key       # only works with `next dev`
+URL_TOKEN_SECRET=your-url-token-secret  # signs JWT-in-URL tokens
 ```
 
 ### 3. Set Up Supabase
@@ -133,14 +150,30 @@ Visit http://localhost:3000
 - `POST /api/auth/sign-out` - Sign out
 - `GET /api/auth/session` - Get current session
 
-### Protected Routes
+### Protected Routes (Better Auth session)
 
 - `GET /api/protected/stripe-app` - Get user's app installations
 - `POST /api/protected/stripe-app` - Create/update app installation
 
-### Webhooks
+### Stripe App Routes (signed-request auth)
+
+- `GET /api/stripe-app/me` - Echo the verified Stripe identity
+- `POST /api/stripe-app/token` - Mint a short-lived JWT-in-URL token
+
+### Public Routes (route-level auth)
+
+- `GET /api/public/download?token=...&account=...` - JWT-in-URL example
+
+### Machine Routes (bearer token required)
+
+- `GET /api/cron` - Example cron endpoint (`Authorization: Bearer <key>`)
+
+### Webhooks (route-level auth)
 
 - `POST /api/stripe/webhook` - Stripe webhook handler
+
+See [AUTHENTICATION.md](AUTHENTICATION.md) for how each flavor works and how
+the proxy routes requests between them.
 
 ## Usage Examples
 

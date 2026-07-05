@@ -109,6 +109,12 @@ This example ships with the app ID `com.productivity.community-example`. **Strip
 
 Note: changing the `id` after installing a preview means Stripe treats it as a brand-new app — you'd need to install the new one and can uninstall the old.
 
+## Upload early — you need it for the signing secret
+
+The signed-request auth between the app and the backend (see [nextjs-backend/AUTHENTICATION.md](nextjs-backend/AUTHENTICATION.md)) verifies requests against your app's **signing secret** — and that secret **only exists after you run `stripe apps upload` once**. A locally previewed app doesn't have one yet: until the first upload, `fetchStripeSignature()` fails with `No such app: <your-app-id>`, so the demo view's requests can't even be signed. After uploading, copy the "Signing secret" from your app's settings page in the Developers Dashboard into `STRIPE_APP_SECRET` in `nextjs-backend/.env.local`.
+
+**Uploading is not publishing, so don't worry about uploading.** An uploaded app is visible only to your own Stripe account — even if `stripe-app.json` declares a "public" distribution type. That "public" label is a misnomer: to make an app genuinely public you must additionally submit it for review, pass Stripe's review process, and build a Stripe App Marketplace listing — a long process you opt into separately. Upload freely during development.
+
 ## Learn more
 
 - [Stripe Apps docs](https://docs.stripe.com/stripe-apps)

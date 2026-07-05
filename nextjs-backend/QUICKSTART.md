@@ -18,7 +18,7 @@
    ```
 
 2. Create a Supabase project:
-   - Go to https://supabase.com
+   - Go to <https://supabase.com>
    - Create a new project
    - Wait for database to be ready
 
@@ -31,6 +31,7 @@
    - Copy connection string to `DATABASE_URL`
 
 4. Generate Better Auth secret:
+\|\
 
    ```bash
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -39,7 +40,7 @@
    Add to `BETTER_AUTH_SECRET`
 
 5. Add Stripe keys:
-   - Go to https://dashboard.stripe.com/test/apikeys
+   - Go to <https://dashboard.stripe.com/test/apikeys>
    - Copy keys to your `.env.local`
 
 ### 2. Database Setup
@@ -77,14 +78,14 @@ Copy the webhook signing secret that appears and add it to `.env.local` as `STRI
 npm run dev
 ```
 
-Visit http://localhost:3000
+Visit <http://localhost:3000>
 
 ### 5. Test the Application
 
-1. Go to http://localhost:3000/login
+1. Go to <http://localhost:3000/login>
 2. Create a new account
 3. Sign in
-4. Visit http://localhost:3000/account to see your account page
+4. Visit <http://localhost:3000/account> to see your account page
 
 ## Architecture Overview
 
@@ -178,16 +179,19 @@ switch (event.type) {
 ## Troubleshooting
 
 **Database connection fails:**
+
 - Check DATABASE_URL format
 - Verify Supabase project is active
 - Check firewall/IP restrictions
 
 **Authentication not working:**
+
 - Clear browser cookies
 - Verify BETTER_AUTH_SECRET is set
 - Check BETTER_AUTH_URL matches your domain
 
 **Stripe webhooks not received:**
+
 - Ensure Stripe CLI is running
 - Check webhook secret matches
 - Verify endpoint is accessible
@@ -204,7 +208,7 @@ switch (event.type) {
 
 ## Support
 
-- Better Auth: https://better-auth.com/docs
-- Drizzle ORM: https://orm.drizzle.team/docs
-- Supabase: https://supabase.com/docs
-- Stripe: https://stripe.com/docs
+- Better Auth: <https://better-auth.com/docs>
+- Drizzle ORM: <https://orm.drizzle.team/docs>
+- Supabase: <https://supabase.com/docs>
+- Stripe: <https://stripe.com/docs>

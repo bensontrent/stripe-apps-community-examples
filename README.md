@@ -1,5 +1,7 @@
 # Stripe Apps Community Examples
 
+> 🤓👓 **Not an official Stripe publication.** This is a community-maintained repo, unaffiliated with Stripe. Contributions welcome — and please steal this code and use it freely in your own project.
+
 Example project for the Stripe Apps Community meetup: a complete Stripe App with a real backend.
 
 > **🚧 Actively in development.** This repo is growing over time as new examples are added. See the roadmap below for what's done and what's coming.
@@ -20,8 +22,10 @@ Example project for the Stripe Apps Community meetup: a complete Stripe App with
 - [ ] App paywall
 - [ ] App monetization and user billing dashboard
 - [ ] App trial strategies
-- [ ] App documentation
+- [ ] Demo documentation files: how to document your app to the public with markdoc.dev
 - [ ] App settings (user, account-wide and test mode settings)
+- [ ] Security best practices
+- [ ] Hosting recommendation
 - [ ] And much more
 
 This repo contains two projects that work together:

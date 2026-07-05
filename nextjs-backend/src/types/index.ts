@@ -12,7 +12,7 @@ export type JsonValue =
 export type Json = JsonValue;
 
 // App Installation Settings
-export interface AppSettings extends Record<string, JsonValue> {
+export interface AppSettings {
   // Add specific settings fields as needed
   theme?: string;
   notifications?: boolean;
@@ -20,7 +20,7 @@ export interface AppSettings extends Record<string, JsonValue> {
 }
 
 // Stripe Customer Metadata
-export interface StripeMetadata extends Record<string, string> {
+export interface StripeMetadata {
   userId?: string;
   [key: string]: string | undefined;
 }

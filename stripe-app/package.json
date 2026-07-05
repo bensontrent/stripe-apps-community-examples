@@ -1,14 +1,14 @@
 {
-  "name": "com.example.show-toast",
+  "name": "com.productivity.community-example",
   "version": "0.1.0",
-  "description": "App for testing toasts and other things",
+  "description": "Stripe Apps Community meetup example app",
   "private": true,
   "license": "~~proprietary~~",
   "dependencies": {
     "@stripe/ui-extension-sdk": "9.1.0",
     "history": "^5.3.0",
     "react": "18.3.1",
-    "stripe": "20.1.0"
+    "stripe": "21.0.0"
   },
   "engines": {
     "node": ">=14"

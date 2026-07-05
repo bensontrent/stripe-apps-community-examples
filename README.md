@@ -62,11 +62,10 @@ Fill in `.env.local`:
 2. **Better Auth**: generate a secret with `openssl rand -hex 32` (or `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
 3. **Stripe**: copy your test keys from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys).
 
-Then push the database schema to Supabase:
+Then create the database tables, either way:
 
-```bash
-npm run db:push
-```
+- **Option A (CLI):** `npm run db:push` — pushes the Drizzle schema straight to Supabase.
+- **Option B (SQL editor):** paste [nextjs-backend/setup.sql](nextjs-backend/setup.sql) into the Supabase SQL editor and run it. This file is generated from the schema — if you change `src/db/schema.ts`, run `npm run db:generate` to regenerate it.
 
 See [nextjs-backend/QUICKSTART.md](nextjs-backend/QUICKSTART.md) for a detailed walkthrough, and [nextjs-backend/DEPLOYMENT_QUICK_START.md](nextjs-backend/DEPLOYMENT_QUICK_START.md) for deploying to Vercel.
 
@@ -95,10 +94,20 @@ This starts the Next.js backend (http://localhost:3000) and the Stripe App previ
 | `npm run dev:backend` | Next.js dev server only |
 | `npm run dev:app` | Stripe App preview only |
 | `npm run db:push` | Push Drizzle schema to Supabase |
+| `npm run db:generate` | Generate a migration + rebuild `setup.sql` after schema changes |
 | `npm run db:studio` | Open Drizzle Studio |
 | `npm run stripe:login` | Authenticate the Stripe CLI |
 | `npm run stripe:upload` | Upload the app to Stripe |
 | `npm run build:backend` | Production build of the backend |
+
+## Before your first upload: rename the app
+
+This example ships with the app ID `com.productivity.community-example`. **Stripe App IDs are globally unique across all of Stripe** — once an ID has been uploaded by one account, nobody else can upload an app with that ID. Local previewing (`npm run dev`) works fine with the ID as-is, but before you run `npm run stripe:upload` you must pick your own ID:
+
+1. In [`stripe-app/stripe-app.json`](stripe-app/stripe-app.json), change `id` to something you own, using reverse-domain style (e.g. `com.yourcompany.your-app-name`). You can also change the display `name`.
+2. Keep [`stripe-app/package.json`](stripe-app/package.json)'s `name` field in sync with the new ID (convention, not required).
+
+Note: changing the `id` after installing a preview means Stripe treats it as a brand-new app — you'd need to install the new one and can uninstall the old.
 
 ## Learn more
 

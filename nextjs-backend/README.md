@@ -10,7 +10,7 @@ A complete Next.js API backend with authentication (Better Auth + Supabase) and 
 - 🎯 **Stripe App Support**: API endpoints for Stripe App installations
 - 👤 **User Account Page**: Complete account management UI
 - 🔒 **Protected Routes**: Middleware-based authentication
-- 🎨 **Modern Stack**: Next.js 15, TypeScript, Tailwind CSS
+- 🎨 **Modern Stack**: Next.js 16, TypeScript, Tailwind CSS
 
 ## Project Structure
 

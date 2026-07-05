@@ -12,9 +12,10 @@
 ### 1. Environment Setup
 
 1. Copy the environment template:
-   \\\ash
+
+   ```bash
    cp .env.example .env.local
-   \\\
+   ```
 
 2. Create a Supabase project:
    - Go to https://supabase.com
@@ -23,35 +24,39 @@
 
 3. Get Supabase credentials:
    - Go to Project Settings > API
-   - Copy \URL\ to \NEXT_PUBLIC_SUPABASE_URL\
-   - Copy \non public\ key to \NEXT_PUBLIC_SUPABASE_ANON_KEY\
-   - Copy \service_role\ key to \SUPABASE_SERVICE_ROLE_KEY\
+   - Copy `URL` to `NEXT_PUBLIC_SUPABASE_URL`
+   - Copy `anon public` key to `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - Copy `service_role` key to `SUPABASE_SERVICE_ROLE_KEY`
    - Go to Project Settings > Database
-   - Copy connection string to \DATABASE_URL\
+   - Copy connection string to `DATABASE_URL`
 
 4. Generate Better Auth secret:
-   \\\ash
-   node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"
-   \\\
-   Add to \BETTER_AUTH_SECRET\
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+   Add to `BETTER_AUTH_SECRET`
 
 5. Add Stripe keys:
    - Go to https://dashboard.stripe.com/test/apikeys
-   - Copy keys to your \.env.local\
+   - Copy keys to your `.env.local`
 
 ### 2. Database Setup
 
-\\\ash
+```bash
 # Install dependencies
 npm install
 
 # Push database schema to Supabase
 npm run db:push
-\\\
+```
+
+Alternatively, paste `setup.sql` into the Supabase SQL editor and run it — it creates the same tables. `setup.sql` is generated; after changing `src/db/schema.ts`, run `npm run db:generate` to write a migration and rebuild it.
 
 ### 3. Stripe Webhook Setup (Local Development)
 
-\\\ash
+```bash
 # Install Stripe CLI
 # macOS: brew install stripe/stripe-cli/stripe
 # Windows: scoop install stripe
@@ -62,15 +67,15 @@ stripe login
 
 # Forward webhooks (keep this running in a separate terminal)
 stripe listen --forward-to localhost:3000/api/stripe/webhook
-\\\
+```
 
-Copy the webhook signing secret that appears and add it to \.env.local\ as \STRIPE_WEBHOOK_SECRET\
+Copy the webhook signing secret that appears and add it to `.env.local` as `STRIPE_WEBHOOK_SECRET`
 
 ### 4. Run the Application
 
-\\\ash
+```bash
 npm run dev
-\\\
+```
 
 Visit http://localhost:3000
 
@@ -101,15 +106,15 @@ Visit http://localhost:3000
 
 ### API Structure
 
-- \/api/auth/*\: Authentication endpoints (Better Auth)
-- \/api/stripe/webhook\: Stripe event handler
-- \/api/protected/*\: Authenticated API routes
+- `/api/auth/*`: Authentication endpoints (Better Auth)
+- `/api/stripe/webhook`: Stripe event handler
+- `/api/protected/*`: Authenticated API routes
 
 ## Common Tasks
 
 ### Add a New Protected Route
 
-\\\	ypescript
+```typescript
 // src/app/api/protected/my-route/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
@@ -126,11 +131,11 @@ export async function GET(req: NextRequest) {
   // Your logic here
   return NextResponse.json({ data: 'Protected data' });
 }
-\\\
+```
 
 ### Query the Database
 
-\\\	ypescript
+```typescript
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -145,25 +150,25 @@ await db.insert(users).values({
   email: 'new@example.com',
   name: 'New User',
 });
-\\\
+```
 
 ### Handle Stripe Events
 
-Edit \src/app/api/stripe/webhook/route.ts\ to add new event handlers:
+Edit `src/app/api/stripe/webhook/route.ts` to add new event handlers:
 
-\\\	ypescript
+```typescript
 switch (event.type) {
   case 'your.event.type':
     // Handle event
     break;
 }
-\\\
+```
 
 ## Deployment Checklist
 
 - [ ] Set production environment variables
-- [ ] Update \BETTER_AUTH_URL\ to production domain
-- [ ] Generate new \BETTER_AUTH_SECRET\ for production
+- [ ] Update `BETTER_AUTH_URL` to production domain
+- [ ] Generate new `BETTER_AUTH_SECRET` for production
 - [ ] Use production Stripe keys
 - [ ] Create production Stripe webhook endpoint
 - [ ] Enable Supabase Row Level Security (RLS)

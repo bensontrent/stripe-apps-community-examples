@@ -11,6 +11,7 @@
     "dev:app": "npm run start --prefix stripe-app",
     "build:backend": "npm run build --prefix nextjs-backend",
     "db:push": "npm run db:push --prefix nextjs-backend",
+    "db:generate": "npm run db:generate --prefix nextjs-backend",
     "db:studio": "npm run db:studio --prefix nextjs-backend",
     "stripe:login": "npm run login --prefix stripe-app",
     "stripe:upload": "npm run upload --prefix stripe-app",

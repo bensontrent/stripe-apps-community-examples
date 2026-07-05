@@ -1,7 +1,7 @@
 {
-  "id": "com.example.my-stripe-app",
+  "id": "com.productivity.community-example",
   "version": "0.1.0",
-  "name": "Show Toast",
+  "name": "Community Example",
   "icon": "./app_icon.png",
   "permissions": [],
   "ui_extension": {

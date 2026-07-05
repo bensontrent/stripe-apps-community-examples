@@ -1,0 +1,60 @@
+// Common type definitions
+
+// JSON type for settings and metadata
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export type Json = JsonValue;
+
+// App Installation Settings
+export interface AppSettings extends Record<string, JsonValue> {
+  // Add specific settings fields as needed
+  theme?: string;
+  notifications?: boolean;
+  [key: string]: JsonValue | undefined;
+}
+
+// Stripe Customer Metadata
+export interface StripeMetadata extends Record<string, string> {
+  userId?: string;
+  [key: string]: string | undefined;
+}
+
+// API Response types
+export interface ApiResponse<T = any> {
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+// Session types
+export interface SessionUser {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+  emailVerified?: boolean;
+}
+
+export interface Session {
+  user: SessionUser;
+  session: {
+    id: string;
+    userId: string;
+    expiresAt: Date;
+    token: string;
+    ipAddress?: string;
+    userAgent?: string;
+  };
+}

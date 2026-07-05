@@ -1,0 +1,25 @@
+{
+  "name": "stripe-apps-community-examples",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stripe Apps Community meetup examples: a Stripe App UI extension + a Next.js backend (Supabase, Drizzle, Better Auth)",
+  "scripts": {
+    "postinstall": "npm install --prefix stripe-app && npm install --prefix nextjs-backend",
+    "install:all": "npm install --prefix stripe-app && npm install --prefix nextjs-backend",
+    "dev": "concurrently -n backend,stripe-app -c blue,green \"npm run dev:backend\" \"npm run dev:app\"",
+    "dev:backend": "npm run dev --prefix nextjs-backend",
+    "dev:app": "npm run start --prefix stripe-app",
+    "build:backend": "npm run build --prefix nextjs-backend",
+    "db:push": "npm run db:push --prefix nextjs-backend",
+    "db:studio": "npm run db:studio --prefix nextjs-backend",
+    "stripe:login": "npm run login --prefix stripe-app",
+    "stripe:upload": "npm run upload --prefix stripe-app",
+    "test": "npm test --prefix stripe-app"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

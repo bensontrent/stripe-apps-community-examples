@@ -98,12 +98,11 @@ Visit <http://localhost:3000>
 
 ### Database Schema
 
-- **users**: Core user data
-- **sessions**: Active sessions
-- **accounts**: OAuth providers (extensible)
-- **stripe_customers**: User-to-Stripe mapping
-- **stripe_subscriptions**: Subscription data
-- **app_installations**: Stripe App installations
+- **users** / **sessions** / **auth_accounts** / **verifications**: Better Auth tables (`auth_accounts` = sign-in methods, not Stripe accounts)
+- **stripe_accounts** + **stripe_account_users**: Connected Stripe accounts, many-to-many with users
+- **stripe_app_installations**: Install state per account per livemode
+- **stripe_account_settings** / **stripe_account_user_settings**: Account-wide and per-user settings, isolated per livemode
+- **billing_customers** / **billing_subscriptions**: Publisher-side monetization (each user is a Customer in the publisher's Stripe account)
 
 ### API Structure
 

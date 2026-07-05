@@ -43,23 +43,20 @@ This backend serves dual purposes:
 
 ### 1. Authentication Architecture
 
-\\\
-
-   Browser
-
-        HTTP Request + Cookie
-       
-
-   Middleware (proxy.ts)      Checks session cookie
-
-          Authenticated
-         
-
-  API Route        Verifies session with Better Auth
-
-   Database        Queries user data
-
-\\\
+```
+Browser
+   |
+   |  HTTP Request + Cookie
+   v
+Middleware (proxy.ts)      checks session cookie
+   |
+   |  authenticated
+   v
+API Route                  verifies session with Better Auth
+   |
+   v
+Database                   queries user data
+```
 
 **Flow:**
 
@@ -71,55 +68,73 @@ This backend serves dual purposes:
 
 ### 2. Database Schema Design
 
-**User Management:**
+**User management (Better Auth):**
 
-- \users\: Core user identity
-- \sessions\: Active authentication sessions
-- \ccounts\: OAuth provider linkage
-- \erification_tokens\: Email verification
+- `users`: Core user identity, plus app-global `settings` jsonb (mode-independent preferences)
+- `sessions`: Active authentication sessions
+- `auth_accounts`: Sign-in methods (email/password credential or OAuth provider). This is Better Auth's "account" model - it is unrelated to Stripe accounts
+- `verifications`: Email verification / password reset values
 
-**Stripe Integration:**
+**Merchant side (connected Stripe accounts the app is installed into):**
 
-- \stripe_customers\: User  Stripe Customer mapping
-- \stripe_subscriptions\: Subscription state sync
-- \pp_installations\: Stripe App installation records
+- `stripe_accounts`: One row per Stripe account (`acct_...`). The same acct_ id covers live and test mode; mode-specific data lives in the child tables, keyed by a `livemode` flag so live and test never affect each other
+- `stripe_account_users`: User <-> Stripe account membership (many-to-many: users can belong to multiple Stripe accounts, and Stripe accounts have multiple users)
+- `stripe_app_installations`: Install state per (account, livemode)
+- `stripe_account_settings`: Settings shared by every user of the account, per (account, livemode) - e.g. the company office address
+- `stripe_account_user_settings`: Per-user settings within an account, per (user, account, livemode) - e.g. which address is that user's local company address
+
+**Publisher side (monetization):**
+
+- `billing_customers`: Each app user as a Customer (`cus_...`) in the app publisher's own Stripe account, one per livemode
+- `billing_subscriptions`: Subscription state synced from the publisher account's webhooks
 
 **Relationships:**
-\\\
-users (1)  (1) stripe_customers
-users (1)  (n) stripe_subscriptions
-users (1)  (n) app_installations
-users (1)  (n) sessions
-users (1)  (n) accounts
-\\\
+
+```
+users (n) <-> (n) stripe_accounts          via stripe_account_users
+stripe_accounts (1) -> (n) stripe_app_installations    one per livemode
+stripe_accounts (1) -> (n) stripe_account_settings     one per livemode
+users x stripe_accounts -> stripe_account_user_settings  one per livemode
+users (1) -> (n) billing_customers         one per livemode
+users (1) -> (n) billing_subscriptions
+users (1) -> (n) sessions
+users (1) -> (n) auth_accounts
+```
 
 ### 3. API Route Structure
 
 **Public Routes:**
 
-- \/api/auth/*\: Authentication endpoints (Better Auth managed)
-- \/api/stripe/webhook\: Stripe event receiver (signature verified)
+- `/api/auth/*`: Authentication endpoints (Better Auth managed)
+- `/api/stripe/webhook`: Stripe event receiver (signature verified)
 
 **Protected Routes:**
 
-- \/api/protected/*\: Requires valid session
+- `/api/protected/*`: Requires valid session
 - Middleware enforces authentication
 - Session validated on each request
 
 ### 4. Webhook Processing
 
-\\\
-Stripe  Webhook Endpoint  Signature Verification
-
+```
+Stripe -> Webhook Endpoint -> Signature Verification
+                                       |
+                                       v
                                   Event Router
-                                        
-                    
-                                                          
-            Customer Events    Subscription Events    Other Events
-                                                          
-                                                          
-              Update DB           Update DB           Log/Process
-\\\
+                                       |
+         +-----------------------------+-----------------------------+
+         v                             v                             v
+  Customer Events            Subscription Events               Other Events
+         |                             |                             |
+         v                             v                             v
+    Log/Process                    Update DB                    Log/Process
+```
+
+Each webhook endpoint is configured with query string params (e.g.
+`/api/stripe/webhook?mode=live&type=connected`) so the handler can pick the
+right Stripe client and signing secret per environment. Subscription events
+are upserted into `billing_subscriptions` (publisher-side billing); the
+customer event handler is currently a logging stub.
 
 ## Security Considerations
 
@@ -148,56 +163,38 @@ Stripe  Webhook Endpoint  Signature Verification
 
 ### User Registration Flow
 
-\\\
-
+```
 1. User submits registration form
-
 2. POST /api/auth/sign-up
-
 3. Better Auth creates user + session
-
 4. Session cookie set in response
-
 5. User redirected to /account
-
 6. Middleware validates session
-
 7. Account page loads with user data
-\\\
+```
 
 ### Stripe Webhook Flow
 
-\\\
-
+```
 1. Event occurs in Stripe (e.g., subscription created)
-
 2. Stripe sends webhook to /api/stripe/webhook
-
 3. Signature verified
-
 4. Event type routed to handler
-
-5. Database updated with new subscription data
-
+5. Database updated with new subscription data (billing_subscriptions)
 6. Response sent to Stripe (200 OK)
-\\\
+```
 
 ### Stripe App Installation Flow
 
-\\\
-
+```
 1. User installs app in Stripe Dashboard
-
 2. Stripe redirects to your app with installation details
-
 3. User authenticates (if not already)
-
 4. POST /api/protected/stripe-app
-
-5. Installation record created in database
-
+5. Stripe account, user membership, and installation records upserted
+   (stripe_accounts, stripe_account_users, stripe_app_installations)
 6. User sees installation in account page
-\\\
+```
 
 ## Scalability Considerations
 
@@ -229,7 +226,7 @@ Stripe  Webhook Endpoint  Signature Verification
 
 ### Adding OAuth Providers
 
-\\\ ypescript
+```typescript
 // In src/lib/auth.ts
 socialProviders: {
   google: {
@@ -241,20 +238,18 @@ socialProviders: {
     clientSecret: process.env.GITHUB_CLIENT_SECRET!,
   },
 }
-\\\
+```
 
 ### Adding Custom User Fields
 
-1. Update schema in \src/db/schema.ts\
-2. Run \
-pm run db:generate\
-3. Run \
-pm run db:push\
-4. Update TypeScript types automatically inferred
+1. Update schema in `src/db/schema.ts`
+2. Run `npm run db:generate` (regenerates migrations and rebuilds `setup.sql`)
+3. Run `npm run db:push`
+4. TypeScript types are automatically inferred
 
 ### Adding New API Endpoints
 
-1. Create route file in \src/app/api/\
+1. Create route file in `src/app/api/`
 2. Add authentication check if needed
 3. Implement business logic
 4. Return JSON response
@@ -265,7 +260,7 @@ pm run db:push\
 
 - Use Drizzle's query builder for optimized SQL
 - Add indexes on frequently queried columns
-- Use \with\ for eager loading relationships
+- Use `with` for eager loading relationships
 
 ### API Routes
 
@@ -298,14 +293,13 @@ pm run db:push\
 
 ### Production Setup
 
-\\\
-
-   Vercel       Next.js hosting
-
-        Supabase (Database)
-        Stripe (Payments)
-        Better Auth (Sessions)
-\\\
+```
+Vercel (Next.js hosting)
+   |
+   +-> Supabase (Database)
+   +-> Stripe (Payments)
+   +-> Better Auth (Sessions)
+```
 
 ### Environment Separation
 

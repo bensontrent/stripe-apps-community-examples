@@ -98,11 +98,11 @@ const App = (context: ExtensionContextValue) => {
   return (
     <ContextView
       title="Backend connection"
-      brandColor="#e8bd7d"
+      brandColor="#334"
       brandIcon={BrandIcon}
       externalLink={{
-        label: "How the auth works",
-        href: "https://github.com/bensontrent/stripe-apps-community-examples/blob/main/AUTHENTICATION.md", // point at your repo's AUTHENTICATION.md
+        label: "See documentation",
+        href: "https://github.com/bensontrent/stripe-apps-community-examples/", // point at your repo's AUTHENTICATION.md
       }}
     >
       <Box css={{ stack: "y", gap: "medium" }}>

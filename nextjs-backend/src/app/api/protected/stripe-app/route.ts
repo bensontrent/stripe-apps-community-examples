@@ -1,16 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
-import { appInstallations } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import {
+  stripeAccounts,
+  stripeAccountSettings,
+  stripeAccountUsers,
+  stripeAccountUserSettings,
+  stripeAppInstallations,
+} from '@/db/schema';
+import { eq, inArray } from 'drizzle-orm';
 import type { Json } from '@/types';
 
-interface CreateInstallationBody {
+interface RegisterInstallationBody {
   stripeAccountId: string;
   installationId: string;
-  settings?: Json;
+  livemode: boolean;
+  // Settings shared by every user of the Stripe account, for this mode
+  // (e.g. the company office address).
+  accountSettings?: Json;
+  // Settings for the current user within the Stripe account, for this mode
+  // (e.g. the user's local company address).
+  userSettings?: Json;
 }
 
+// List the Stripe accounts the current user belongs to, with each account's
+// installations (live and test tracked separately).
 export async function GET(req: NextRequest) {
   try {
     // Verify the session
@@ -25,14 +39,36 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get user's app installations
-    const installations = await db.query.appInstallations.findMany({
-      where: eq(appInstallations.userId, session.user.id),
-    });
+    const memberships = await db
+      .select({
+        stripeAccountId: stripeAccounts.stripeAccountId,
+        name: stripeAccounts.name,
+      })
+      .from(stripeAccountUsers)
+      .innerJoin(
+        stripeAccounts,
+        eq(stripeAccountUsers.stripeAccountId, stripeAccounts.stripeAccountId)
+      )
+      .where(eq(stripeAccountUsers.userId, session.user.id));
 
-    return NextResponse.json({ installations });
+    const accountIds = memberships.map((m) => m.stripeAccountId);
+    const installations = accountIds.length
+      ? await db
+          .select()
+          .from(stripeAppInstallations)
+          .where(inArray(stripeAppInstallations.stripeAccountId, accountIds))
+      : [];
+
+    const accounts = memberships.map((membership) => ({
+      ...membership,
+      installations: installations.filter(
+        (i) => i.stripeAccountId === membership.stripeAccountId
+      ),
+    }));
+
+    return NextResponse.json({ accounts });
   } catch (error) {
-    console.error('Error fetching installations:', error);
+    console.error('Error fetching accounts:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -40,6 +76,8 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Register an installation: upserts the Stripe account, the current user's
+// membership in it, and the (account, livemode) installation record.
 export async function POST(req: NextRequest) {
   try {
     // Verify the session
@@ -54,40 +92,82 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json() as CreateInstallationBody;
-    const { stripeAccountId, installationId, settings } = body;
+    const body = await req.json() as RegisterInstallationBody;
+    const { stripeAccountId, installationId, livemode, accountSettings, userSettings } = body;
 
-    if (!stripeAccountId || !installationId) {
+    if (!stripeAccountId || !installationId || typeof livemode !== 'boolean') {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Create or update app installation
-    const installation = await db
-      .insert(appInstallations)
+    await db
+      .insert(stripeAccounts)
+      .values({ stripeAccountId })
+      .onConflictDoNothing({ target: stripeAccounts.stripeAccountId });
+
+    await db
+      .insert(stripeAccountUsers)
+      .values({ userId: session.user.id, stripeAccountId })
+      .onConflictDoNothing();
+
+    const [installation] = await db
+      .insert(stripeAppInstallations)
       .values({
-        userId: session.user.id,
         stripeAccountId,
+        livemode,
         installationId,
-        settings: settings || {},
         isActive: true,
       })
       .onConflictDoUpdate({
-        target: appInstallations.stripeAccountId,
+        target: [stripeAppInstallations.stripeAccountId, stripeAppInstallations.livemode],
         set: {
           installationId,
-          settings: settings || {},
           isActive: true,
           updatedAt: new Date(),
         },
       })
       .returning();
 
-    return NextResponse.json({ installation: installation[0] });
+    if (accountSettings !== undefined) {
+      await db
+        .insert(stripeAccountSettings)
+        .values({ stripeAccountId, livemode, settings: accountSettings })
+        .onConflictDoUpdate({
+          target: [stripeAccountSettings.stripeAccountId, stripeAccountSettings.livemode],
+          set: {
+            settings: accountSettings,
+            updatedAt: new Date(),
+          },
+        });
+    }
+
+    if (userSettings !== undefined) {
+      await db
+        .insert(stripeAccountUserSettings)
+        .values({
+          userId: session.user.id,
+          stripeAccountId,
+          livemode,
+          settings: userSettings,
+        })
+        .onConflictDoUpdate({
+          target: [
+            stripeAccountUserSettings.userId,
+            stripeAccountUserSettings.stripeAccountId,
+            stripeAccountUserSettings.livemode,
+          ],
+          set: {
+            settings: userSettings,
+            updatedAt: new Date(),
+          },
+        });
+    }
+
+    return NextResponse.json({ installation });
   } catch (error) {
-    console.error('Error creating installation:', error);
+    console.error('Error registering installation:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

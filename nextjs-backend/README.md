@@ -133,13 +133,25 @@ Visit http://localhost:3000
 
 ### Tables
 
-- **users**: User accounts with email authentication
+Better Auth (sign-in):
+
+- **users**: User accounts with email authentication, plus app-global `settings` jsonb
 - **sessions**: Active user sessions
-- **accounts**: OAuth provider accounts
-- **verification_tokens**: Email verification tokens
-- **stripe_customers**: Links users to Stripe customers
-- **stripe_subscriptions**: Subscription data from Stripe
-- **app_installations**: Stripe App installation records
+- **auth_accounts**: Sign-in methods (credential/OAuth) — Better Auth's "account" model, unrelated to Stripe accounts
+- **verifications**: Email verification / password reset values
+
+Merchant side (connected Stripe accounts; mode-specific tables carry a `livemode` flag so live and test data stay separate):
+
+- **stripe_accounts**: Connected Stripe accounts, one row per `acct_...` id
+- **stripe_account_users**: User ↔ Stripe account membership (many-to-many)
+- **stripe_app_installations**: App install state per account per livemode
+- **stripe_account_settings**: Account-wide settings per account per livemode
+- **stripe_account_user_settings**: Per-user settings within an account, per livemode
+
+Publisher side (monetization):
+
+- **billing_customers**: Each user as a Customer in the app publisher's Stripe account, one per livemode
+- **billing_subscriptions**: Subscription data synced from the publisher account
 
 ## API Endpoints
 

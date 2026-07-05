@@ -2,6 +2,28 @@
 
 Example project for the Stripe Apps Community meetup: a complete Stripe App with a real backend.
 
+> **🚧 Actively in development.** This repo is growing over time as new examples are added. See the roadmap below for what's done and what's coming.
+
+## Roadmap
+
+- [x] Next.js API backend example
+- [x] Secure backend routes:
+  - [x] Local Dev API Keys
+  - [x] Stripe Signing Signature Example
+  - [x] Secure token url links from app
+- [ ] Creative component examples: Password input, Address suggestion through Google Places API, Unified Container wrapper
+- [ ] Login component with Better Auth backend
+- [ ] Complex routing examples
+- [ ] Full page app example
+- [ ] Connected webhooks
+- [ ] App user email notifications
+- [ ] App paywall
+- [ ] App monetization and user billing dashboard
+- [ ] App trial strategies
+- [ ] App documentation
+- [ ] App settings (user, account-wide and test mode settings)
+- [ ] And much more
+
 This repo contains two projects that work together:
 
 | Folder | What it is | Runs on |
@@ -83,7 +105,7 @@ From the repo root:
 npm run dev
 ```
 
-This starts the Next.js backend (http://localhost:3000) and the Stripe App preview (`stripe apps start`, which opens the Stripe Dashboard) side by side. You can also run them individually with `npm run dev:backend` and `npm run dev:app`.
+This starts the Next.js backend (<http://localhost:3000>) and the Stripe App preview (`stripe apps start`, which opens the Stripe Dashboard) side by side. You can also run them individually with `npm run dev:backend` and `npm run dev:app`.
 
 ## Root scripts
 

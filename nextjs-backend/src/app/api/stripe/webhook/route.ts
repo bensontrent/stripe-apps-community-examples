@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { stripeCustomers, stripeSubscriptions } from '@/db/schema';
+import { billingCustomers, billingSubscriptions } from '@/db/schema';
 import { getStripeClient, getWebhookSecret, StripeEnvironment } from '@/lib/stripe';
 import { eq } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
 
         // Find user by stripe customer ID
-        const customerRecord = await db.query.stripeCustomers.findFirst({
-          where: eq(stripeCustomers.stripeCustomerId, subscription.customer as string),
+        const customerRecord = await db.query.billingCustomers.findFirst({
+          where: eq(billingCustomers.stripeCustomerId, subscription.customer as string),
         });
 
 
@@ -76,8 +76,8 @@ export async function POST(req: NextRequest) {
 
           const updatedSubscriptionValues = {
             status: subscription.status,
-            priceId: subscription.items.data[0]?.price.id,
-            quantity: subscription.items.data[0]?.quantity?.toString(),
+            priceId: item?.price.id,
+            quantity: item?.quantity ?? null,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
             currentPeriodStart: item.current_period_start ? new Date(item.current_period_start * 1000) : null,
             currentPeriodEnd: item.current_period_end ? new Date(item.current_period_end * 1000) : null,
@@ -91,18 +91,19 @@ export async function POST(req: NextRequest) {
 
 
           await db
-            .insert(stripeSubscriptions)
+            .insert(billingSubscriptions)
             .values({
               ...{
                 userId: customerRecord.userId,
                 stripeSubscriptionId: subscription.id,
                 stripeCustomerId: subscription.customer as string,
+                livemode: event.livemode,
               },
               ...updatedSubscriptionValues
             }
             )
             .onConflictDoUpdate({
-              target: stripeSubscriptions.stripeSubscriptionId,
+              target: billingSubscriptions.stripeSubscriptionId,
               set: updatedSubscriptionValues,
             });
         }
@@ -113,13 +114,13 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
 
         await db
-          .update(stripeSubscriptions)
+          .update(billingSubscriptions)
           .set({
             status: 'canceled',
             endedAt: new Date(),
             updatedAt: new Date(),
           })
-          .where(eq(stripeSubscriptions.stripeSubscriptionId, subscription.id));
+          .where(eq(billingSubscriptions.stripeSubscriptionId, subscription.id));
         break;
       }
 

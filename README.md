@@ -6,6 +6,17 @@ Example project for the Stripe Apps Community meetup: a complete Stripe App with
 
 > **🚧 Actively in development.** This repo is growing over time as new examples are added. See the roadmap below for what's done and what's coming.
 
+## 📅 Community meetup
+
+The Stripe Apps Developer meetup is now listed on the [Stripe Community website](https://www.stripecommunity.com/public/clubs/stripe-app-developers). This is not an official Stripe support channel — the goal is to help each other with real challenges that fall outside the scope of the Stripe docs. We post answers to questions raised in the community as code, right here in this repo.
+
+**Upcoming meetups:**
+
+| Date | Time | Link |
+|---|---|---|
+| Tue, Jul 7 | 2:00 PM – 2:40 PM EDT | [Join](https://www.stripecommunity.com/public/clubs/stripe-app-developers/events/stripe-app-developers-community-meetup-tlmu8nve5k) |
+| Tue, Jul 21 | 2:00 PM – 3:00 PM EDT | [Join](https://www.stripecommunity.com/public/clubs/stripe-app-developers/events/stripe-app-developers-community-meetup-yrlvz6syxc) |
+
 ## Roadmap
 
 - [x] Next.js API backend example

@@ -11,6 +11,17 @@
 
 ### 1. Environment Setup
 
+**Easiest way:** run the one-time wizard from the repo root — it does everything in this section for you (generates secrets, connects Supabase, writes `.env.local`):
+
+```bash
+npm run setup
+```
+
+While the `delete_me_after_setup/` folder exists, <http://localhost:3000> shows a live checklist of anything still missing; delete the folder once it's green.
+
+<details>
+<summary>Manual alternative</summary>
+
 1. Copy the environment template:
 
    ```bash
@@ -22,26 +33,24 @@
    - Create a new project
    - Wait for database to be ready
 
-3. Get Supabase credentials:
-   - Go to Project Settings > API
-   - Copy `URL` to `NEXT_PUBLIC_SUPABASE_URL`
-   - Copy `anon public` key to `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - Copy `service_role` key to `SUPABASE_SERVICE_ROLE_KEY`
-   - Go to Project Settings > Database
-   - Copy connection string to `DATABASE_URL`
+3. Get the connection string:
+   - Click **Connect** in the project toolbar
+   - Copy the **Session pooler** connection string to `DATABASE_URL` (replace `[YOUR-PASSWORD]`)
+   - Optional: set `DB_SCHEMA` to install the tables into a dedicated schema instead of `public`
 
 4. Generate Better Auth secret:
-\|\
 
    ```bash
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
 
-   Add to `BETTER_AUTH_SECRET`
+   Add to `BETTER_AUTH_SECRET` (generate the proxy-auth secrets the same way — see `.env.example`)
 
 5. Add Stripe keys:
    - Go to <https://dashboard.stripe.com/test/apikeys>
    - Copy keys to your `.env.local`
+
+</details>
 
 ### 2. Database Setup
 
@@ -70,7 +79,7 @@ stripe login
 stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```
 
-Copy the webhook signing secret that appears and add it to `.env.local` as `STRIPE_WEBHOOK_SECRET`
+Copy the webhook signing secret that appears and add it to `.env.local` as `STRIPE_WEBHOOK_SECRET_TEST_CONNECTED`
 
 ### 4. Run the Application
 

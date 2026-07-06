@@ -3,12 +3,34 @@ import {
     boolean,
     integer,
     jsonb,
-    pgTable,
+    pgSchema,
+    pgTable as pgPublicTable,
     text,
     timestamp,
     unique,
     uuid,
 } from 'drizzle-orm/pg-core';
+
+// ---------------------------------------------------------------------------
+// Schema selection
+//
+// By default every table lives in Postgres's `public` schema. Set DB_SCHEMA
+// in .env.local to install everything into a dedicated schema instead —
+// useful for running this demo on a Supabase project you already use for
+// something else. `npm run db:push` creates the schema automatically
+// (drizzle-kit sees the exported pgSchema and emits CREATE SCHEMA).
+//
+// Caveat: the generated migrations in drizzle/ and setup.sql target the
+// default public schema. With a custom DB_SCHEMA, use `npm run db:push`;
+// running `npm run db:generate` would bake the custom name into new
+// migrations and setup.sql.
+// ---------------------------------------------------------------------------
+const schemaName = process.env.DB_SCHEMA;
+export const appSchema =
+    schemaName && schemaName !== 'public' ? pgSchema(schemaName) : undefined;
+// appSchema.table builds identically-shaped tables, just schema-qualified;
+// the cast keeps every table's static type the same as the public-schema one.
+const pgTable = (appSchema ? appSchema.table : pgPublicTable) as typeof pgPublicTable;
 
 // ---------------------------------------------------------------------------
 // Naming conventions

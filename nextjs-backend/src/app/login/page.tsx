@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { signIn, signUp } from '@/lib/auth-client';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+// useSearchParams() forces a client-side bailout, so it must sit under a
+// Suspense boundary for `next build` to prerender this page.
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

@@ -77,21 +77,34 @@ npm install
 
 ### 2. Configure the backend
 
+Run the one-time setup wizard from the repo root:
+
+```bash
+npm run setup
+```
+
+It generates every random secret for you (no `openssl` needed), helps you connect a Supabase database — an existing project or a brand-new free one, into the `public` schema or an isolated one — takes your Stripe test key, writes `nextjs-backend/.env.local`, and offers to create the database tables (`npm run db:push`).
+
+While the [`nextjs-backend/delete_me_after_setup/`](nextjs-backend/delete_me_after_setup/) folder exists, the dev server home page (<http://localhost:3000>) shows a **live setup checklist** of anything still missing. When it's all green, delete that folder — the wizard, install banner, and checklist all disappear (none of it is used at runtime).
+
+<details>
+<summary>Prefer manual setup?</summary>
+
 ```bash
 cd nextjs-backend
 cp .env.example .env.local
 ```
 
-Fill in `.env.local`:
-
-1. **Supabase**: create a project at [supabase.com](https://supabase.com), then copy from *Project Settings → API*: the URL (`NEXT_PUBLIC_SUPABASE_URL`), anon key, and service role key. Copy the connection string from *Project Settings → Database* into `DATABASE_URL`.
-2. **Better Auth**: generate a secret with `openssl rand -hex 32` (or `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+1. **Supabase**: create a project at [supabase.com](https://supabase.com) and copy the connection string (Connect → Session pooler) into `DATABASE_URL`.
+2. **Better Auth**: generate a secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` (same for the proxy-auth secrets — see `.env.example`).
 3. **Stripe**: copy your test keys from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys).
 
 Then create the database tables, either way:
 
 - **Option A (CLI):** `npm run db:push` — pushes the Drizzle schema straight to Supabase.
 - **Option B (SQL editor):** paste [nextjs-backend/setup.sql](nextjs-backend/setup.sql) into the Supabase SQL editor and run it. This file is generated from the schema — if you change `src/db/schema.ts`, run `npm run db:generate` to regenerate it.
+
+</details>
 
 See [nextjs-backend/QUICKSTART.md](nextjs-backend/QUICKSTART.md) for a detailed walkthrough, and [nextjs-backend/DEPLOYMENT_QUICK_START.md](nextjs-backend/DEPLOYMENT_QUICK_START.md) for deploying to Vercel.
 
@@ -116,6 +129,7 @@ This starts the Next.js backend (<http://localhost:3000>) and the Stripe App pre
 | Script | What it does |
 |---|---|
 | `npm install` | Installs dependencies for both projects |
+| `npm run setup` | One-time setup wizard: writes `nextjs-backend/.env.local` (delete `nextjs-backend/delete_me_after_setup/` when done) |
 | `npm run dev` | Runs backend + Stripe App preview together |
 | `npm run dev:backend` | Next.js dev server only |
 | `npm run dev:app` | Stripe App preview only |
@@ -137,7 +151,7 @@ Note: changing the `id` after installing a preview means Stripe treats it as a b
 
 ## Upload early — you need it for the signing secret
 
-The signed-request auth between the app and the backend (see [nextjs-backend/AUTHENTICATION.md](nextjs-backend/AUTHENTICATION.md)) verifies requests against your app's **signing secret** — and that secret **only exists after you run `stripe apps upload` once**. A locally previewed app doesn't have one yet: until the first upload, `fetchStripeSignature()` fails with `No such app: <your-app-id>`, so the demo view's requests can't even be signed. After uploading, copy the "Signing secret" from your app's settings page in the Developers Dashboard into `STRIPE_APP_SECRET` in `nextjs-backend/.env.local`.
+The signed-request auth between the app and the backend (see [nextjs-backend/AUTHENTICATION.md](nextjs-backend/AUTHENTICATION.md)) verifies requests against your app's **signing secret** — and that secret **only exists after you run `stripe apps upload` once**. A locally previewed app doesn't have one yet: until the first upload, `fetchStripeSignature()` fails with `No such app: <your-app-id>`, so the demo view's requests can't even be signed. After uploading, copy the "Signing secret" from your app's settings page in the Developers Dashboard into `STRIPE_APP_SIGNING_SECRET` in `nextjs-backend/.env.local`.
 
 **Uploading is not publishing, so don't worry about uploading.** An uploaded app is visible only to your own Stripe account — even if `stripe-app.json` declares a "public" distribution type. That "public" label is a misnomer: to make an app genuinely public you must additionally submit it for review, pass Stripe's review process, and build a Stripe App Marketplace listing — a long process you opt into separately. Upload freely during development.
 

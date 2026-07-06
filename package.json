@@ -4,8 +4,10 @@
   "private": true,
   "description": "Stripe Apps Community meetup examples: a Stripe App UI extension + a Next.js backend (Supabase, Drizzle, Better Auth)",
   "scripts": {
-    "postinstall": "npm install --prefix stripe-app && npm install --prefix nextjs-backend",
+    "postinstall": "npm install --prefix stripe-app && npm install --prefix nextjs-backend && node -e \"try{require('./nextjs-backend/delete_me_after_setup/banner.js')}catch(e){}\"",
     "install:all": "npm install --prefix stripe-app && npm install --prefix nextjs-backend",
+    "setup": "node nextjs-backend/delete_me_after_setup/setup.mjs",
+    "predev": "node -e \"try{require('./nextjs-backend/delete_me_after_setup/banner.js')}catch(e){}\"",
     "dev": "concurrently -n backend,stripe-app -c blue,green \"npm run dev:backend\" \"npm run dev:app\"",
     "dev:backend": "npm run dev --prefix nextjs-backend",
     "dev:app": "npm run start --prefix stripe-app",

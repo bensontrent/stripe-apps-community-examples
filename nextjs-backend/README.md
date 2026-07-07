@@ -1,11 +1,11 @@
-# Stripe App Backend with Drizzle ORM & Better Auth
+# Stripe App Backend with Supabase & Better Auth
 
-A complete Next.js API backend with authentication (Better Auth + Supabase) and Drizzle ORM for building Stripe Apps with user account management.
+A complete Next.js API backend with authentication (Better Auth) and Supabase Postgres for building Stripe Apps with user account management.
 
 ## Features
 
 - 🔐 **Authentication**: Better Auth with email/password and session management
-- 🗄️ **Database**: Drizzle ORM with PostgreSQL (via Supabase)
+- 🗄️ **Database**: Supabase (Postgres) — tables created by one `setup.sql`, queried with `supabase-js`
 - 💳 **Stripe Integration**: Webhook handling, customer & subscription management
 - 🎯 **Stripe App Support**: API endpoints for Stripe App installations
 - 👤 **User Account Page**: Complete account management UI
@@ -28,17 +28,15 @@ backend/
 │   │   ├── account/               # User account page
 │   │   ├── login/                 # Login/signup page
 │   │   └── page.tsx               # Home page
-│   ├── db/
-│   │   ├── schema.ts              # Database schema
-│   │   └── index.ts               # Database connection
 │   ├── lib/
 │   │   ├── auth.ts                # Better Auth server config
 │   │   ├── auth-client.ts         # Better Auth client hooks
+│   │   ├── supabase.ts            # Supabase server client (service role)
 │   │   ├── proxy-auth.ts          # Proxy auth helpers (all flavors)
 │   │   ├── url-token.ts           # Short-lived JWT-in-URL tokens
 │   │   └── stripe.ts              # Stripe clients & webhook secrets
 │   └── proxy.ts                   # Auth proxy (Next.js 16 middleware)
-├── drizzle.config.ts              # Drizzle configuration
+├── setup.sql                      # Database schema (single source of truth)
 ├── .env.local                     # Environment variables
 └── package.json
 ```
@@ -95,21 +93,20 @@ URL_TOKEN_SECRET=your-url-token-secret  # signs JWT-in-URL tokens
 ### 3. Set Up Supabase
 
 1. Create a new project at [supabase.com](https://supabase.com)
-2. Get your database connection string from Settings > Database
-3. Copy your API keys from Settings > API
+2. Copy the connection string (Connect → Session pooler) into `DATABASE_URL`
+3. Copy the project URL and `service_role` key (Project Settings → API Keys) into `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
 
-### 4. Generate and Run Database Migrations
+### 4. Create the Database Tables
+
+Either paste [`setup.sql`](setup.sql) into the Supabase SQL editor and run it, or apply it from the CLI:
 
 ```bash
-# Generate migration files from schema
-npm run db:generate
-
-# Push schema to database
-npm run db:push
-
-# Or run migrations
-npm run db:migrate
+npm run db:setup
 ```
+
+`setup.sql` is the single source of truth for the schema — it creates all 11 tables, their foreign keys, and enables Row Level Security so the public anon key can't touch them (the backend uses the service-role key, which bypasses RLS).
+
+**Reusing an existing Supabase project?** Set `SUPABASE_SCHEMA` in `.env.local` to install everything into a dedicated Postgres schema instead of `public` — that way the demo doesn't use up one of the free tier's limited project slots. `npm run db:setup` creates the schema, installs the tables there, and grants Supabase's API roles access (`npm run db:setup -- --print` prints that SQL for the SQL editor). One manual step remains: add the schema to **Exposed schemas** in the Supabase dashboard (Settings → API) so `supabase-js` can query it — the setup checklist verifies this for you.
 
 ### 5. Set Up Stripe Webhooks
 
@@ -240,22 +237,23 @@ export async function GET(req: NextRequest) {
 ### Database Queries
 
 ```typescript
-import { db } from '@/db';
-import { users, stripeCustomers } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { getSupabase } from '@/lib/supabase';
+
+const supabase = getSupabase();
 
 // Find user by email
-const user = await db.query.users.findFirst({
-  where: eq(users.email, 'user@example.com'),
-});
+const { data: user } = await supabase
+  .from('users')
+  .select('*')
+  .eq('email', 'user@example.com')
+  .maybeSingle();
 
-// Get user with Stripe customer
-const userWithStripe = await db.query.users.findFirst({
-  where: eq(users.id, userId),
-  with: {
-    stripeCustomer: true,
-  },
-});
+// Get user with their billing customers (follows the foreign key, like a join)
+const { data: userWithBilling } = await supabase
+  .from('users')
+  .select('*, billing_customers(*)')
+  .eq('id', userId)
+  .maybeSingle();
 ```
 
 ## Stripe App Integration
@@ -288,25 +286,21 @@ The webhook handler automatically:
 ## Database Commands
 
 ```bash
-# Generate migrations from schema changes
-npm run db:generate
+# Create all tables (applies setup.sql over DATABASE_URL; honors SUPABASE_SCHEMA)
+npm run db:setup
 
-# Push schema directly to database (development)
-npm run db:push
-
-# Run migrations
-npm run db:migrate
-
-# Open Drizzle Studio (database GUI)
-npm run db:studio
+# Print the SQL it would run (schema-qualified when SUPABASE_SCHEMA is set)
+npm run db:setup -- --print
 ```
+
+To change the schema later, edit `setup.sql` (for fresh installs) and run matching `ALTER TABLE` statements against any database that already holds data — the Supabase SQL editor works well for both. Supabase's Table Editor doubles as a database GUI.
 
 ## Security Considerations
 
 1. **Environment Variables**: Never commit `.env.local` to version control
 2. **Webhook Signatures**: Always verify Stripe webhook signatures
 3. **Session Security**: Better Auth handles secure session management
-4. **Database**: Use Supabase Row Level Security (RLS) for additional protection
+4. **Database**: `setup.sql` enables Row Level Security on every table, so Supabase's auto-generated REST API exposes nothing to the anon key; keep `SUPABASE_SERVICE_ROLE_KEY` server-side only
 5. **API Routes**: Protected routes check authentication via middleware
 
 ## Deployment
@@ -349,7 +343,6 @@ Update these in production:
 ## Additional Resources
 
 - [Better Auth Documentation](https://better-auth.com)
-- [Drizzle ORM Documentation](https://orm.drizzle.team)
 - [Supabase Documentation](https://supabase.com/docs)
 - [Stripe API Documentation](https://stripe.com/docs/api)
 - [Next.js Documentation](https://nextjs.org/docs)

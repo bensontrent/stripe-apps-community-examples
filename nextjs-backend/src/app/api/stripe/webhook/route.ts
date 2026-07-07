@@ -1,7 +1,5 @@
-import { db } from '@/db';
-import { billingCustomers, billingSubscriptions } from '@/db/schema';
 import { getStripeClient, getWebhookSecret, StripeEnvironment } from '@/lib/stripe';
-import { eq } from 'drizzle-orm';
+import { getSupabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
@@ -10,6 +8,11 @@ import Stripe from 'stripe';
 //   /api/stripe/webhook?mode=test&type=connected
 //   /api/stripe/webhook?mode=test&type=managed_sandbox
 // Then read the params off the incoming request.
+
+// Stripe sends unix-second timestamps; Postgres wants ISO strings.
+function toTimestamp(seconds: number | null | undefined): string | null {
+  return seconds ? new Date(seconds * 1000).toISOString() : null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,10 +67,12 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
 
         // Find user by stripe customer ID
-        const customerRecord = await db.query.billingCustomers.findFirst({
-          where: eq(billingCustomers.stripeCustomerId, subscription.customer as string),
-        });
-
+        const { data: customerRecord, error: customerError } = await getSupabase()
+          .from('billing_customers')
+          .select('user_id')
+          .eq('stripe_customer_id', subscription.customer as string)
+          .maybeSingle();
+        if (customerError) throw customerError;
 
         if (customerRecord) {
           // Upsert subscription
@@ -76,36 +81,33 @@ export async function POST(req: NextRequest) {
 
           const updatedSubscriptionValues = {
             status: subscription.status,
-            priceId: item?.price.id,
+            price_id: item?.price.id ?? null,
             quantity: item?.quantity ?? null,
-            cancelAtPeriodEnd: subscription.cancel_at_period_end,
-            currentPeriodStart: item.current_period_start ? new Date(item.current_period_start * 1000) : null,
-            currentPeriodEnd: item.current_period_end ? new Date(item.current_period_end * 1000) : null,
-            endedAt: subscription.ended_at ? new Date(subscription.ended_at * 1000) : null,
-            cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
-            canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
-            trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
-            trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            current_period_start: toTimestamp(item?.current_period_start),
+            current_period_end: toTimestamp(item?.current_period_end),
+            ended_at: toTimestamp(subscription.ended_at),
+            cancel_at: toTimestamp(subscription.cancel_at),
+            canceled_at: toTimestamp(subscription.canceled_at),
+            trial_start: toTimestamp(subscription.trial_start),
+            trial_end: toTimestamp(subscription.trial_end),
             metadata: subscription.metadata,
-          }
+            updated_at: new Date().toISOString(),
+          };
 
-
-          await db
-            .insert(billingSubscriptions)
-            .values({
-              ...{
-                userId: customerRecord.userId,
-                stripeSubscriptionId: subscription.id,
-                stripeCustomerId: subscription.customer as string,
+          const { error } = await getSupabase()
+            .from('billing_subscriptions')
+            .upsert(
+              {
+                user_id: customerRecord.user_id,
+                stripe_subscription_id: subscription.id,
+                stripe_customer_id: subscription.customer as string,
                 livemode: event.livemode,
+                ...updatedSubscriptionValues,
               },
-              ...updatedSubscriptionValues
-            }
-            )
-            .onConflictDoUpdate({
-              target: billingSubscriptions.stripeSubscriptionId,
-              set: updatedSubscriptionValues,
-            });
+              { onConflict: 'stripe_subscription_id' }
+            );
+          if (error) throw error;
         }
         break;
       }
@@ -113,14 +115,15 @@ export async function POST(req: NextRequest) {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
 
-        await db
-          .update(billingSubscriptions)
-          .set({
+        const { error } = await getSupabase()
+          .from('billing_subscriptions')
+          .update({
             status: 'canceled',
-            endedAt: new Date(),
-            updatedAt: new Date(),
+            ended_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           })
-          .where(eq(billingSubscriptions.stripeSubscriptionId, subscription.id));
+          .eq('stripe_subscription_id', subscription.id);
+        if (error) throw error;
         break;
       }
 

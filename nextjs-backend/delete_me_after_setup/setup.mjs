@@ -66,7 +66,7 @@ function readLine(prompt) {
 }
 
 async function ask(question, { def = '', validate } = {}) {
-  for (;;) {
+  for (; ;) {
     const suffix = def ? ` ${dim(`(${def})`)}` : '';
     const raw = await readLine(`${cyan('?')} ${question}${suffix} `);
     if (raw === null) throw new Error('input ended before setup finished');
@@ -100,9 +100,9 @@ async function choose(question, options) {
 function openInBrowser(url) {
   const cmd =
     process.platform === 'win32' ? `start "" "${url}"`
-    : process.platform === 'darwin' ? `open "${url}"`
-    : `xdg-open "${url}"`;
-  exec(cmd, () => {}); // best effort — the URL is printed either way
+      : process.platform === 'darwin' ? `open "${url}"`
+        : `xdg-open "${url}"`;
+  exec(cmd, () => { }); // best effort — the URL is printed either way
 }
 
 // --- env-file helpers ----------------------------------------------------------
@@ -128,7 +128,7 @@ function configured(value) {
 
 // Every key this wizard manages, in the order they are written.
 const TEMPLATE_KEYS = new Set([
-  'DATABASE_URL', 'DB_SCHEMA',
+  'DATABASE_URL', 'SUPABASE_SCHEMA',
   'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
   'BETTER_AUTH_SECRET', 'BETTER_AUTH_URL', 'NEXT_PUBLIC_BETTER_AUTH_URL',
   'STRIPE_SECRET_KEY_TEST', 'STRIPE_SECRET_KEY_LIVE', 'STRIPE_SECRET_KEY_MANAGED_SANDBOX',
@@ -156,16 +156,18 @@ function buildEnv(v, extras) {
 #  live checklist of what is missing while the setup folder exists.
 # ============================================================================
 
-# --- Database (Supabase Postgres via Drizzle) --------------------------------
+# --- Database (Supabase Postgres — Better Auth connects here directly) -------
 ${req('DATABASE_URL', 'postgresql://REPLACE_ME')}
-# Optional: install the tables into a dedicated schema instead of public
-# (handy on a Supabase project you already use for something else).
-${opt('DB_SCHEMA', 'stripe_app_demo')}
+# Optional: install the tables into a dedicated schema instead of public —
+# reuse a Supabase project you already have without burning a free-tier
+# project slot. \`npm run db:setup\` creates it; you must also add it to
+# "Exposed schemas" in the dashboard (Settings → API).
+${opt('SUPABASE_SCHEMA', 'stripe_app')}
 
-# --- Supabase client keys (not used by the current code — safe to skip) ------
-${opt('NEXT_PUBLIC_SUPABASE_URL', 'https://REPLACE_ME.supabase.co')}
+# --- Supabase API keys (the backend's data access goes through supabase-js) --
+${req('NEXT_PUBLIC_SUPABASE_URL', 'https://REPLACE_ME.supabase.co')}
+${req('SUPABASE_SERVICE_ROLE_KEY', 'REPLACE_ME')}
 ${opt('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'REPLACE_ME')}
-${opt('SUPABASE_SERVICE_ROLE_KEY', 'REPLACE_ME')}
 
 # --- Better Auth --------------------------------------------------------------
 ${req('BETTER_AUTH_SECRET', 'REPLACE_ME')}
@@ -271,7 +273,7 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
     ]);
     if (pick === 1) {
       console.log(`
-  1. Sign in at ${cyan('https://database.new')} — it drops you straight into "new project"
+  1. Sign in at Supabase ${cyan('https://database.new')} — it drops you straight into a Supabase "new project"
   2. Pick any name and region, set a ${bold('database password')} and keep it handy
   3. Wait a couple of minutes while the project provisions
 `);
@@ -296,8 +298,8 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
       if (/:6543\//.test(url)) {
         console.log(
           yellow(
-            '  Note: port 6543 is the transaction pooler. If db:push fails, copy the\n' +
-              '  session pooler (port 5432) connection string instead.',
+            '  Note: port 6543 is the transaction pooler. If anything fails to connect,\n' +
+            '  copy the session pooler (port 5432) connection string instead.',
           ),
         );
       }
@@ -307,27 +309,50 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
     }
   }
 
-  // 4. public schema, or an isolated one on a shared project?
-  if (have('DB_SCHEMA')) {
-    console.log(`${green('✔')} DB_SCHEMA already set to "${v.DB_SCHEMA}" — kept as-is.`);
+  // 4. Supabase API keys — the backend's data access goes through supabase-js.
+  if (have('NEXT_PUBLIC_SUPABASE_URL') && have('SUPABASE_SERVICE_ROLE_KEY')) {
+    console.log(`${green('✔')} Supabase API keys already set — kept as-is.`);
+  } else if (
+    await yesNo('Add your Supabase API keys now? (dashboard → Project Settings → API Keys)')
+  ) {
+    v.NEXT_PUBLIC_SUPABASE_URL = await ask('Project URL (https://....supabase.co)', {
+      def: v.NEXT_PUBLIC_SUPABASE_URL,
+      validate: (s) => (/^https:\/\//.test(s) ? null : 'That does not look like an https:// URL'),
+    });
+    v.SUPABASE_SERVICE_ROLE_KEY = await ask('service_role secret key', {
+      def: v.SUPABASE_SERVICE_ROLE_KEY,
+      validate: (s) => (s ? null : 'Paste the service_role key (it stays on your machine)'),
+    });
+  } else {
+    console.log(dim('  Skipped — the checklist at http://localhost:3000 will remind you.'));
+  }
+
+  // 5. public schema, or a dedicated one on a shared project?
+  if (have('SUPABASE_SCHEMA')) {
+    console.log(`${green('✔')} SUPABASE_SCHEMA already set to "${v.SUPABASE_SCHEMA}" — kept as-is.`);
   } else {
     const pick = await choose('Which Postgres schema should the tables live in?', [
       'public — the default, simplest choice',
-      'A dedicated schema — keeps this demo isolated on a project you already use',
+      "A dedicated schema — reuse a Supabase project you already have (doesn't use up a free-tier project slot)",
     ]);
     if (pick === 1) {
-      v.DB_SCHEMA = await ask('Schema name', {
-        def: 'stripe_app_demo',
+      v.SUPABASE_SCHEMA = await ask('Schema name', {
+        def: 'stripe_app',
         validate: (s) =>
           /^[a-z_][a-z0-9_]*$/.test(s)
             ? null
             : 'Lowercase letters, digits and _ only, starting with a letter',
       });
-      console.log(dim('  npm run db:push creates the schema automatically.'));
+      console.log(dim('  npm run db:setup creates the schema and its tables automatically.'));
+      console.log(
+        yellow(
+          `  One manual step: in the Supabase dashboard, open Settings → API and add\n  "${v.SUPABASE_SCHEMA}" to "Exposed schemas" — the backend can't query it until then.`,
+        ),
+      );
     }
   }
 
-  // 5. Stripe test key (the only Stripe value needed for local development).
+  // 6. Stripe test key (the only Stripe value needed for local development).
   if (have('STRIPE_SECRET_KEY_TEST')) {
     console.log(`${green('✔')} STRIPE_SECRET_KEY_TEST already set — kept as-is.`);
   } else if (await yesNo('Add your Stripe test-mode secret key now? (You can paste it later)')) {
@@ -342,7 +367,7 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
     });
   }
 
-  // 6. Write the file (or show it).
+  // 7. Write the file (or show it).
   const extras = [...existing].filter(([key, value]) => !TEMPLATE_KEYS.has(key) && configured(value));
   const content = buildEnv(v, extras);
 
@@ -359,21 +384,27 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
     console.log(`${green('✔')} Wrote ${path.relative(process.cwd(), envPath) || envPath}`);
   }
 
-  // 7. Create the tables.
+  // 8. Create the tables.
   if (!dryRun && have('DATABASE_URL')) {
-    if (await yesNo('Create the database tables now? (runs `npm run db:push`)')) {
-      const res = spawnSync('npm run db:push', { cwd: backendDir, stdio: 'inherit', shell: true });
+    if (await yesNo('Create the database tables now? (runs `npm run db:setup`, which applies setup.sql)')) {
+      const res = spawnSync('npm run db:setup', { cwd: backendDir, stdio: 'inherit', shell: true });
       console.log(
         res.status === 0
           ? green('✔ Tables created.')
-          : red('✖ db:push failed — see the output above. Rerun any time with `npm run db:push`.'),
+          : red('✖ db:setup failed — see the output above. Rerun any time with `npm run db:setup`,\n  or paste nextjs-backend/setup.sql into the Supabase SQL editor instead.'),
       );
     }
   }
 
-  // 8. What's left.
+  // 9. What's left.
   const todo = [];
-  if (!have('DATABASE_URL')) todo.push('Set DATABASE_URL in nextjs-backend/.env.local, then run `npm run db:push`');
+  if (!have('DATABASE_URL')) todo.push('Set DATABASE_URL in nextjs-backend/.env.local, then run `npm run db:setup`');
+  if (!have('NEXT_PUBLIC_SUPABASE_URL') || !have('SUPABASE_SERVICE_ROLE_KEY'))
+    todo.push('Copy the project URL and service_role key (Project Settings → API Keys)\n    into NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+  if (have('SUPABASE_SCHEMA'))
+    todo.push(
+      `Add "${v.SUPABASE_SCHEMA}" to "Exposed schemas" in the Supabase dashboard\n    (Settings → API) — the checklist verifies this once tables exist`,
+    );
   if (!have('STRIPE_SECRET_KEY_TEST')) todo.push('Paste your Stripe test key into STRIPE_SECRET_KEY_TEST');
   todo.push(
     'Local webhooks: `stripe listen --forward-to localhost:3000/api/stripe/webhook`\n    → copy the printed whsec_ into STRIPE_WEBHOOK_SECRET_TEST_CONNECTED',

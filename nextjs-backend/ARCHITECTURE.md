@@ -27,9 +27,10 @@ This backend serves dual purposes:
 
 ### Database
 
-- **Drizzle ORM**: Type-safe SQL query builder
 - **PostgreSQL**: Relational database (via Supabase)
-- **Migration System**: Version-controlled schema changes
+- **supabase-js**: Query client used by the API routes (service-role key, server-side only)
+- **setup.sql**: Single source of truth for the schema — one file creates every table
+- **Better Auth** connects directly over `DATABASE_URL` (a plain `pg` Pool) to manage its own tables
 
 ### Payment Processing
 
@@ -242,10 +243,9 @@ socialProviders: {
 
 ### Adding Custom User Fields
 
-1. Update schema in `src/db/schema.ts`
-2. Run `npm run db:generate` (regenerates migrations and rebuilds `setup.sql`)
-3. Run `npm run db:push`
-4. TypeScript types are automatically inferred
+1. Add the column to the `users` table in `setup.sql` (for fresh installs)
+2. Run the matching `ALTER TABLE users ADD COLUMN ...` against your existing database (Supabase SQL editor)
+3. If Better Auth should manage the field, declare it under `user.additionalFields` in `src/lib/auth.ts`
 
 ### Adding New API Endpoints
 
@@ -258,9 +258,9 @@ socialProviders: {
 
 ### Database Queries
 
-- Use Drizzle's query builder for optimized SQL
+- Select only the columns you need (`.select('col_a, col_b')`)
 - Add indexes on frequently queried columns
-- Use `with` for eager loading relationships
+- Embed related rows in one request (`.select('*, other_table(*)')`) instead of extra round trips
 
 ### API Routes
 

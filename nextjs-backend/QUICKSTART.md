@@ -33,10 +33,11 @@ While the `delete_me_after_setup/` folder exists, <http://localhost:3000> shows 
    - Create a new project
    - Wait for database to be ready
 
-3. Get the connection string:
+3. Get the connection string and API keys:
    - Click **Connect** in the project toolbar
    - Copy the **Session pooler** connection string to `DATABASE_URL` (replace `[YOUR-PASSWORD]`)
-   - Optional: set `DB_SCHEMA` to install the tables into a dedicated schema instead of `public`
+   - In **Project Settings → API Keys**, copy the project URL and `service_role` key to `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+   - Optional: set `SUPABASE_SCHEMA` to install the tables into a dedicated schema instead of `public` — handy for reusing an existing project without using up a free-tier slot (then add that schema to **Exposed schemas** under Settings → API)
 
 4. Generate Better Auth secret:
 
@@ -58,11 +59,13 @@ While the `delete_me_after_setup/` folder exists, <http://localhost:3000> shows 
 # Install dependencies
 npm install
 
-# Push database schema to Supabase
-npm run db:push
+# Create the tables (applies setup.sql over DATABASE_URL)
+npm run db:setup
 ```
 
-Alternatively, paste `setup.sql` into the Supabase SQL editor and run it — it creates the same tables. `setup.sql` is generated; after changing `src/db/schema.ts`, run `npm run db:generate` to write a migration and rebuild it.
+Alternatively, paste `setup.sql` into the Supabase SQL editor and run it — same result. `setup.sql` is the single source of truth for the schema; edit it directly when you change the database.
+
+With `SUPABASE_SCHEMA` set, `npm run db:setup` creates the dedicated schema, installs the tables there and grants the API roles access; use `npm run db:setup -- --print` if you'd rather paste the schema-qualified SQL into the SQL editor.
 
 ### 3. Stripe Webhook Setup (Local Development)
 
@@ -145,17 +148,19 @@ export async function GET(req: NextRequest) {
 ### Query the Database
 
 ```typescript
-import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { getSupabase } from '@/lib/supabase';
+
+const supabase = getSupabase();
 
 // Find user
-const user = await db.query.users.findFirst({
-  where: eq(users.email, 'user@example.com'),
-});
+const { data: user } = await supabase
+  .from('users')
+  .select('*')
+  .eq('email', 'user@example.com')
+  .maybeSingle();
 
 // Insert user
-await db.insert(users).values({
+await supabase.from('users').insert({
   email: 'new@example.com',
   name: 'New User',
 });
@@ -180,7 +185,7 @@ switch (event.type) {
 - [ ] Generate new `BETTER_AUTH_SECRET` for production
 - [ ] Use production Stripe keys
 - [ ] Create production Stripe webhook endpoint
-- [ ] Enable Supabase Row Level Security (RLS)
+- [ ] Confirm Row Level Security is enabled on every table (`setup.sql` does this)
 - [ ] Test authentication flow
 - [ ] Test Stripe webhooks
 
@@ -212,11 +217,10 @@ switch (event.type) {
 4. Add email verification
 5. Set up OAuth providers (Google, GitHub, etc.)
 6. Add subscription management UI
-7. Implement Row Level Security in Supabase
+7. Add RLS policies if you ever query Supabase from the browser (the backend's service-role key bypasses RLS)
 
 ## Support
 
 - Better Auth: <https://better-auth.com/docs>
-- Drizzle ORM: <https://orm.drizzle.team/docs>
 - Supabase: <https://supabase.com/docs>
 - Stripe: <https://stripe.com/docs>

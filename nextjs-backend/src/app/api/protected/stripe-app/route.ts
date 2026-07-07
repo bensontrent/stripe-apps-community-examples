@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { db } from '@/db';
-import {
-  stripeAccounts,
-  stripeAccountSettings,
-  stripeAccountUsers,
-  stripeAccountUserSettings,
-  stripeAppInstallations,
-} from '@/db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { getSupabase } from '@/lib/supabase';
 import type { Json } from '@/types';
 
 interface RegisterInstallationBody {
@@ -39,30 +31,39 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const memberships = await db
-      .select({
-        stripeAccountId: stripeAccounts.stripeAccountId,
-        name: stripeAccounts.name,
-      })
-      .from(stripeAccountUsers)
-      .innerJoin(
-        stripeAccounts,
-        eq(stripeAccountUsers.stripeAccountId, stripeAccounts.stripeAccountId)
-      )
-      .where(eq(stripeAccountUsers.userId, session.user.id));
+    const supabase = getSupabase();
 
-    const accountIds = memberships.map((m) => m.stripeAccountId);
-    const installations = accountIds.length
-      ? await db
-          .select()
-          .from(stripeAppInstallations)
-          .where(inArray(stripeAppInstallations.stripeAccountId, accountIds))
-      : [];
+    // The stripe_accounts(name) part follows the foreign key from
+    // stripe_account_users to stripe_accounts, like a join. Without generated
+    // database types supabase-js can't tell the embed is single-row, so spell
+    // the shape out.
+    const { data: memberships, error: membershipsError } = await supabase
+      .from('stripe_account_users')
+      .select('stripe_account_id, stripe_accounts ( name )')
+      .eq('user_id', session.user.id)
+      .returns<Array<{
+        stripe_account_id: string;
+        stripe_accounts: { name: string | null } | null;
+      }>>();
+
+    if (membershipsError) throw membershipsError;
+
+    const accountIds = memberships.map((m) => m.stripe_account_id);
+    let installations: Array<{ stripe_account_id: string }> = [];
+    if (accountIds.length > 0) {
+      const { data, error } = await supabase
+        .from('stripe_app_installations')
+        .select('*')
+        .in('stripe_account_id', accountIds);
+      if (error) throw error;
+      installations = data;
+    }
 
     const accounts = memberships.map((membership) => ({
-      ...membership,
+      stripeAccountId: membership.stripe_account_id,
+      name: membership.stripe_accounts?.name ?? null,
       installations: installations.filter(
-        (i) => i.stripeAccountId === membership.stripeAccountId
+        (i) => i.stripe_account_id === membership.stripe_account_id
       ),
     }));
 
@@ -102,67 +103,71 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await db
-      .insert(stripeAccounts)
-      .values({ stripeAccountId })
-      .onConflictDoNothing({ target: stripeAccounts.stripeAccountId });
+    const supabase = getSupabase();
 
-    await db
-      .insert(stripeAccountUsers)
-      .values({ userId: session.user.id, stripeAccountId })
-      .onConflictDoNothing();
+    // ignoreDuplicates makes these "insert if missing, leave alone if present"
+    // (the SQL equivalent of ON CONFLICT DO NOTHING).
+    const { error: accountError } = await supabase
+      .from('stripe_accounts')
+      .upsert(
+        { stripe_account_id: stripeAccountId },
+        { onConflict: 'stripe_account_id', ignoreDuplicates: true }
+      );
+    if (accountError) throw accountError;
 
-    const [installation] = await db
-      .insert(stripeAppInstallations)
-      .values({
-        stripeAccountId,
-        livemode,
-        installationId,
-        isActive: true,
-      })
-      .onConflictDoUpdate({
-        target: [stripeAppInstallations.stripeAccountId, stripeAppInstallations.livemode],
-        set: {
-          installationId,
-          isActive: true,
-          updatedAt: new Date(),
+    const { error: memberError } = await supabase
+      .from('stripe_account_users')
+      .upsert(
+        { user_id: session.user.id, stripe_account_id: stripeAccountId },
+        { onConflict: 'user_id,stripe_account_id', ignoreDuplicates: true }
+      );
+    if (memberError) throw memberError;
+
+    const { data: installation, error: installationError } = await supabase
+      .from('stripe_app_installations')
+      .upsert(
+        {
+          stripe_account_id: stripeAccountId,
+          livemode,
+          installation_id: installationId,
+          is_active: true,
+          updated_at: new Date().toISOString(),
         },
-      })
-      .returning();
+        { onConflict: 'stripe_account_id,livemode' }
+      )
+      .select()
+      .single();
+    if (installationError) throw installationError;
 
     if (accountSettings !== undefined) {
-      await db
-        .insert(stripeAccountSettings)
-        .values({ stripeAccountId, livemode, settings: accountSettings })
-        .onConflictDoUpdate({
-          target: [stripeAccountSettings.stripeAccountId, stripeAccountSettings.livemode],
-          set: {
+      const { error } = await supabase
+        .from('stripe_account_settings')
+        .upsert(
+          {
+            stripe_account_id: stripeAccountId,
+            livemode,
             settings: accountSettings,
-            updatedAt: new Date(),
+            updated_at: new Date().toISOString(),
           },
-        });
+          { onConflict: 'stripe_account_id,livemode' }
+        );
+      if (error) throw error;
     }
 
     if (userSettings !== undefined) {
-      await db
-        .insert(stripeAccountUserSettings)
-        .values({
-          userId: session.user.id,
-          stripeAccountId,
-          livemode,
-          settings: userSettings,
-        })
-        .onConflictDoUpdate({
-          target: [
-            stripeAccountUserSettings.userId,
-            stripeAccountUserSettings.stripeAccountId,
-            stripeAccountUserSettings.livemode,
-          ],
-          set: {
+      const { error } = await supabase
+        .from('stripe_account_user_settings')
+        .upsert(
+          {
+            user_id: session.user.id,
+            stripe_account_id: stripeAccountId,
+            livemode,
             settings: userSettings,
-            updatedAt: new Date(),
+            updated_at: new Date().toISOString(),
           },
-        });
+          { onConflict: 'user_id,stripe_account_id,livemode' }
+        );
+      if (error) throw error;
     }
 
     return NextResponse.json({ installation });

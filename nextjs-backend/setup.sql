@@ -1,10 +1,29 @@
 -- setup.sql — creates every table the backend expects.
--- Paste into the Supabase SQL editor (or run: psql "$DATABASE_URL" -f setup.sql)
--- as an alternative to `npm run db:push`.
+-- This file is the single source of truth for the database schema.
 --
--- GENERATED FILE — do not edit by hand.
--- Regenerate after any change to src/db/schema.ts by running: npm run db:generate
--- (drizzle-kit writes a migration, then this file is rebuilt from all migrations)
+-- Run it once against your Supabase project, either way:
+--   • paste it into the Supabase SQL editor (Dashboard → SQL Editor → Run), or
+--   • npm run db:setup   (applies it over DATABASE_URL from .env.local)
+--
+-- Tables land in the `public` schema. To share a Supabase project you already
+-- use for something else, set SUPABASE_SCHEMA in .env.local and run
+-- `npm run db:setup` instead — it creates the dedicated schema, installs
+-- everything there, and grants the Supabase API roles access
+-- (`npm run db:setup -- --print` prints that schema-qualified SQL if you
+-- prefer the SQL editor). Then add the schema to "Exposed schemas" in the
+-- Supabase dashboard (Settings → API).
+--
+-- To change the schema later: edit the CREATE TABLE statements here (for
+-- fresh installs) and run matching ALTER TABLE statements against any
+-- database that already holds data.
+--
+-- Table naming:
+--   auth_*     Better Auth's models. auth_accounts is a sign-in method
+--              (credential or OAuth provider), unrelated to Stripe accounts.
+--   stripe_*   The merchant side: connected Stripe accounts the app is
+--              installed into, memberships, installations and settings.
+--   billing_*  The publisher side: each app user as a Customer in the app
+--              publisher's own Stripe account, plus their subscriptions.
 
 CREATE TABLE "auth_accounts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -148,3 +167,19 @@ ALTER TABLE "stripe_account_user_settings" ADD CONSTRAINT "stripe_account_user_s
 ALTER TABLE "stripe_account_users" ADD CONSTRAINT "stripe_account_users_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "stripe_account_users" ADD CONSTRAINT "stripe_account_users_stripe_account_id_stripe_accounts_stripe_account_id_fk" FOREIGN KEY ("stripe_account_id") REFERENCES "public"."stripe_accounts"("stripe_account_id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "stripe_app_installations" ADD CONSTRAINT "stripe_app_installations_stripe_account_id_stripe_accounts_stripe_account_id_fk" FOREIGN KEY ("stripe_account_id") REFERENCES "public"."stripe_accounts"("stripe_account_id") ON DELETE cascade ON UPDATE no action;
+
+-- Supabase exposes the public schema through its auto-generated REST API.
+-- Enabling Row Level Security with no policies locks every table down for the
+-- public anon key. The backend is unaffected: it uses the service-role key
+-- (which bypasses RLS), and Better Auth connects directly over DATABASE_URL.
+ALTER TABLE "auth_accounts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "billing_customers" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "billing_subscriptions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "sessions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "stripe_account_settings" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "stripe_account_user_settings" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "stripe_account_users" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "stripe_accounts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "stripe_app_installations" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "users" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "verifications" ENABLE ROW LEVEL SECURITY;

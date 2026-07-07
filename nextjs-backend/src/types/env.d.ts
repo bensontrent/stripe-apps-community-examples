@@ -4,6 +4,8 @@ declare global {
     interface ProcessEnv {
       // Database
       DATABASE_URL: string;
+      /** Optional dedicated schema for the app's tables (defaults to public). */
+      SUPABASE_SCHEMA?: string;
 
       // Supabase
       NEXT_PUBLIC_SUPABASE_URL: string;

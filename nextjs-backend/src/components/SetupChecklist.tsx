@@ -28,21 +28,21 @@ function configured(value: string | undefined): value is string {
 
 async function probeDatabase(schema: string) {
     try {
-        const { default: postgres } = await import('postgres');
-        // prepare: false so the probe also works through Supabase's
-        // transaction pooler (port 6543).
-        const sql = postgres(process.env.DATABASE_URL as string, {
-            max: 1,
-            connect_timeout: 5,
-            prepare: false,
+        const { Client } = await import('pg');
+        const client = new Client({
+            connectionString: process.env.DATABASE_URL,
+            connectionTimeoutMillis: 5000,
         });
+        await client.connect();
         try {
-            const rows = await sql`
-                select 1 from information_schema.tables
-                where table_schema = ${schema} and table_name = 'users'`;
+            const { rows } = await client.query(
+                `select 1 from information_schema.tables
+                 where table_schema = $1 and table_name = 'users'`,
+                [schema],
+            );
             return { connected: true, hasTables: rows.length > 0, error: undefined };
         } finally {
-            await sql.end({ timeout: 2 });
+            await client.end();
         }
     } catch (err) {
         return {
@@ -50,6 +50,24 @@ async function probeDatabase(schema: string) {
             hasTables: false,
             error: err instanceof Error ? err.message : String(err),
         };
+    }
+}
+
+// For a dedicated SUPABASE_SCHEMA only: checks that supabase-js can actually
+// query the schema through Supabase's REST API. This fails until the schema
+// is added to "Exposed schemas" in the dashboard — a step SQL can't automate.
+async function probeSupabaseRest(schema: string) {
+    try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+            process.env.SUPABASE_SERVICE_ROLE_KEY as string,
+            { db: { schema }, auth: { persistSession: false } },
+        );
+        const { error } = await supabase.from('users').select('id', { head: true, count: 'exact' });
+        return { ok: !error, error: error?.message };
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
 }
 
@@ -72,12 +90,20 @@ export default async function SetupChecklist() {
     if (!fs.existsSync(path.join(process.cwd(), SETUP_DIR))) return null;
 
     const env = process.env;
-    const schema = env.DB_SCHEMA || 'public';
+    const schema = env.SUPABASE_SCHEMA || 'public';
     const hasEnvFile = fs.existsSync(path.join(process.cwd(), '.env.local'));
     const dbConfigured = configured(env.DATABASE_URL);
+    const supabaseKeysConfigured =
+        configured(env.NEXT_PUBLIC_SUPABASE_URL) && configured(env.SUPABASE_SERVICE_ROLE_KEY);
     const db = dbConfigured
         ? await probeDatabase(schema)
         : { connected: false, hasTables: false, error: undefined };
+    // The exposure check only matters for a dedicated schema (public is
+    // exposed out of the box), and is only meaningful once keys + tables exist.
+    const rest =
+        schema !== 'public' && supabaseKeysConfigured && db.hasTables
+            ? await probeSupabaseRest(schema)
+            : { ok: false, error: undefined };
 
     const items: Item[] = [
         {
@@ -93,14 +119,14 @@ export default async function SetupChecklist() {
         {
             status: dbConfigured && db.connected ? 'done' : 'todo',
             label: dbConfigured
-                ? `Database reachable (schema “${schema}”)`
+                ? 'Database reachable'
                 : 'Database connection (DATABASE_URL)',
             detail: db.error,
             fix: (
                 <>
-                    Create a free project at{' '}
+                    Create a free Supabase project at{' '}
                     <a className="underline" href="https://database.new" target="_blank" rel="noreferrer">
-                        database.new
+                        Supabase
                     </a>
                     , click <em>Connect</em> in its toolbar, copy the <em>Session pooler</em>{' '}
                     connection string into <Code>DATABASE_URL</Code> in <Code>.env.local</Code>{' '}
@@ -109,21 +135,61 @@ export default async function SetupChecklist() {
             ),
         },
         {
-            status: db.hasTables ? 'done' : 'todo',
-            label: `Database tables created in “${schema}”`,
+            status: supabaseKeysConfigured ? 'done' : 'todo',
+            label: 'Supabase API keys (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)',
             fix: (
                 <>
-                    Run <Code>npm run db:push</Code> from the repo root
+                    In the Supabase dashboard open <em>Project Settings → API Keys</em> and copy the{' '}
+                    project URL and the <Code>service_role</Code> secret key into{' '}
+                    <Code>.env.local</Code>. The backend uses them for all data access.
+                </>
+            ),
+        },
+        {
+            status: db.hasTables ? 'done' : 'todo',
+            label:
+                schema === 'public'
+                    ? 'Database tables created'
+                    : `Database tables created in schema “${schema}”`,
+            fix: (
+                <>
+                    Run <Code>npm run db:setup</Code> from the repo root
                     {schema === 'public' ? (
                         <>
                             {' '}
-                            (or paste <Code>nextjs-backend/setup.sql</Code> into the Supabase SQL editor)
+                            (or paste <Code>nextjs-backend/setup.sql</Code> into the Supabase SQL
+                            editor)
                         </>
-                    ) : null}
+                    ) : (
+                        <>
+                            {' '}
+                            — it creates the <Code>{schema}</Code> schema, installs the tables there
+                            and grants the Supabase API roles access. Prefer the SQL editor? Run{' '}
+                            <Code>npm run db:setup -- --print</Code> and paste its output instead
+                        </>
+                    )}
                     .
                 </>
             ),
         },
+        ...(schema !== 'public'
+            ? [
+                  {
+                      status: (rest.ok ? 'done' : 'todo') as Status,
+                      label: `Schema “${schema}” exposed to the Supabase API`,
+                      detail: rest.error,
+                      fix: (
+                          <>
+                              In the Supabase dashboard open <em>Settings → API</em> and add{' '}
+                              <Code>{schema}</Code> to <em>Exposed schemas</em>, then reload this
+                              page. Until then <Code>supabase-js</Code> can&apos;t query the schema
+                              even though the tables exist. (This check runs once the API keys are
+                              set and the tables are created.)
+                          </>
+                      ),
+                  },
+              ]
+            : []),
         {
             status:
                 configured(env.BETTER_AUTH_SECRET) && env.BETTER_AUTH_SECRET.length >= 32

@@ -44,7 +44,7 @@ This repo contains two projects that work together:
 | Folder | What it is | Runs on |
 |---|---|---|
 | [`stripe-app/`](stripe-app/) | A Stripe App (UI extension) that renders inside the Stripe Dashboard | Stripe CLI (`stripe apps start`) |
-| [`nextjs-backend/`](nextjs-backend/) | A Next.js API backend with auth (Better Auth), Drizzle ORM, and Supabase Postgres | Local dev / Vercel |
+| [`nextjs-backend/`](nextjs-backend/) | A Next.js API backend with auth (Better Auth) and Supabase Postgres | Local dev / Vercel |
 
 ```
 Stripe Dashboard                         Your infrastructure
@@ -52,7 +52,7 @@ Stripe Dashboard                         Your infrastructure
 │  stripe-app          │   HTTPS/API    │  nextjs-backend         │
 │  (UI extension,      │ ─────────────► │  (Next.js on Vercel)    │
 │   React + UI SDK)    │                │   ├─ Better Auth        │
-└──────────────────────┘                │   ├─ Drizzle ORM        │
+└──────────────────────┘                │   ├─ Supabase client    │
         ▲                               │   └─ Stripe webhooks    │
         │ installs into                 └───────────┬─────────────┘
 ┌──────────────────────┐                            │
@@ -94,7 +94,7 @@ Run the one-time setup wizard from the repo root:
 npm run setup
 ```
 
-It generates every random secret for you (no `openssl` needed), helps you connect a Supabase database — an existing project or a brand-new free one, into the `public` schema or an isolated one — takes your Stripe test key, writes `nextjs-backend/.env.local`, and offers to create the database tables (`npm run db:push`).
+It generates every random secret for you (no `openssl` needed), helps you connect a Supabase database — an existing project or a brand-new free one, into the `public` schema or a dedicated one (so you can reuse a project without using up a free-tier slot) — takes your Supabase API keys and Stripe test key, writes `nextjs-backend/.env.local`, and offers to create the database tables (`npm run db:setup`).
 
 While the [`nextjs-backend/delete_me_after_setup/`](nextjs-backend/delete_me_after_setup/) folder exists, the dev server home page (<http://localhost:3000>) shows a **live setup checklist** of anything still missing. When it's all green, delete that folder — the wizard, install banner, and checklist all disappear (none of it is used at runtime).
 
@@ -106,14 +106,18 @@ cd nextjs-backend
 cp .env.example .env.local
 ```
 
-1. **Supabase**: create a project at [supabase.com](https://supabase.com) and copy the connection string (Connect → Session pooler) into `DATABASE_URL`.
+1. **Supabase**: create a project at [supabase.com](https://supabase.com), copy the connection string (Connect → Session pooler) into `DATABASE_URL`, and copy the project URL + `service_role` key (Project Settings → API Keys) into `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
 2. **Better Auth**: generate a secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` (same for the proxy-auth secrets — see `.env.example`).
 3. **Stripe**: copy your test keys from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys).
 
 Then create the database tables, either way:
 
-- **Option A (CLI):** `npm run db:push` — pushes the Drizzle schema straight to Supabase.
-- **Option B (SQL editor):** paste [nextjs-backend/setup.sql](nextjs-backend/setup.sql) into the Supabase SQL editor and run it. This file is generated from the schema — if you change `src/db/schema.ts`, run `npm run db:generate` to regenerate it.
+- **Option A (SQL editor):** paste [nextjs-backend/setup.sql](nextjs-backend/setup.sql) into the Supabase SQL editor and run it.
+- **Option B (CLI):** `npm run db:setup` — applies the same `setup.sql` over `DATABASE_URL`.
+
+`setup.sql` is the single source of truth for the database schema.
+
+Sharing a Supabase project you already use? Set `SUPABASE_SCHEMA` in `.env.local` to install everything into a dedicated schema instead of `public` — `npm run db:setup` creates it, and you then add the schema to *Exposed schemas* in the Supabase dashboard (Settings → API). See `.env.example` for details.
 
 </details>
 
@@ -144,9 +148,7 @@ This starts the Next.js backend (<http://localhost:3000>) and the Stripe App pre
 | `npm run dev` | Runs backend + Stripe App preview together |
 | `npm run dev:backend` | Next.js dev server only |
 | `npm run dev:app` | Stripe App preview only |
-| `npm run db:push` | Push Drizzle schema to Supabase |
-| `npm run db:generate` | Generate a migration + rebuild `setup.sql` after schema changes |
-| `npm run db:studio` | Open Drizzle Studio |
+| `npm run db:setup` | Create the database tables (applies `nextjs-backend/setup.sql` to Supabase) |
 | `npm run stripe:login` | Authenticate the Stripe CLI |
 | `npm run stripe:upload` | Upload the app to Stripe |
 | `npm run build:backend` | Production build of the backend |

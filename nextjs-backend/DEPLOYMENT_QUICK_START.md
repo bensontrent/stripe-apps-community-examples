@@ -39,14 +39,15 @@ CLI users: `npx vercel env pull .env.vercel` verifies what's set.
 
 Two common shapes:
 
-- **Same Supabase project as dev** — copy `DATABASE_URL` (and `DB_SCHEMA` if
-  you set one) as-is. Tables already exist from local setup.
+- **Same Supabase project as dev** — copy `DATABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (and
+  `SUPABASE_SCHEMA` if you set one) as-is. Tables already exist from local
+  setup.
 - **Separate production project** (recommended once real users show up) —
-  create a second Supabase project, set its connection string as
-  `DATABASE_URL` in Vercel, and create the tables by running
-  `npm run db:push` locally with `.env.local` temporarily pointed at the
-  production `DATABASE_URL` (or paste `setup.sql` into its SQL editor —
-  `public` schema only).
+  create a second Supabase project, set its connection string and API keys
+  in Vercel, and create the tables by pasting `setup.sql` into its SQL
+  editor (or run `npm run db:setup` locally with `.env.local` temporarily
+  pointed at the production `DATABASE_URL`).
 
 Prefer Supabase's **Session pooler** connection string — Vercel's serverless
 functions benefit from pooling.

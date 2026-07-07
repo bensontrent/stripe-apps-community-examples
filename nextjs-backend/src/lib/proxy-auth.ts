@@ -234,11 +234,11 @@ export async function verifyApiKey(
   }
 
   // 3. TODO(future work): user API keys checked against the database.
-  //    Sketch: add an `api_keys` table to src/db/schema.ts storing a SHA-256
-  //    hash of each issued key plus its userId; hash `token` here, look it
-  //    up, and return 'user-api-key' with the owning user attached.
-  //    (Remember the schema workflow: schema.ts is the source of truth —
-  //    run `npm run db:generate` after adding the table.)
+  //    Sketch: add an `api_keys` table to setup.sql storing a SHA-256 hash of
+  //    each issued key plus its user_id; hash `token` here, look it up via
+  //    the Supabase client, and return 'user-api-key' with the owning user
+  //    attached. (setup.sql is the schema's source of truth — also run the
+  //    matching CREATE TABLE against any existing database.)
 
   return null;
 }

@@ -11,10 +11,10 @@
 //   - DEV_API_KEY (only when NODE_ENV=development)  → x-auth-type: dev-api-key
 //
 // Try it locally:
-//   curl http://localhost:3030/api/cron -H "Authorization: Bearer $DEV_API_KEY"
+//   curl http://localhost:3006/api/cron -H "Authorization: Bearer $DEV_API_KEY"
 
-import { NextRequest, NextResponse } from 'next/server';
 import { AUTH_HEADERS } from '@/lib/proxy-auth';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
   const authType = req.headers.get(AUTH_HEADERS.authType);

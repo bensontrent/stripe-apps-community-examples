@@ -104,7 +104,7 @@ against, in order (`verifyApiKey()` in `src/lib/proxy-auth.ts`):
    leaked dev key is useless in production:
 
    ```bash
-   curl http://localhost:3030/api/stripe-app/me \
+   curl http://localhost:3006/api/stripe-app/me \
      -H "Authorization: Bearer $DEV_API_KEY"
    ```
 

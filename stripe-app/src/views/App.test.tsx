@@ -1,12 +1,12 @@
 import { getMockContextProps, render } from "@stripe/ui-extension-sdk/testing";
 import { Badge, Banner, Button, Link } from "@stripe/ui-extension-sdk/ui";
 
-import App from "./App";
 import {
   BackendConnectionError,
   createDownloadLink,
   getMe,
 } from "../api/backend";
+import App from "./App";
 
 // Keep the real BackendConnectionError export — the view's `instanceof`
 // check needs the actual class, not a mock.
@@ -91,7 +91,7 @@ describe("App", () => {
     mockCreateDownloadLink.mockResolvedValue({
       token: "jwt-token",
       expiresIn: "15m",
-      url: "http://localhost:3030/api/public/download?token=jwt-token&account=acct_123",
+      url: "http://localhost:3006/api/public/download?token=jwt-token&account=acct_123",
     });
 
     const { wrapper, update } = render(<App {...getMockContextProps()} />);

@@ -70,7 +70,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Better Auth
 BETTER_AUTH_SECRET=your-secret-key-min-32-chars
-BETTER_AUTH_URL=http://localhost:3030
+BETTER_AUTH_URL=http://localhost:3006
 
 # Stripe (see src/lib/stripe.ts for the full list, incl. optional vars)
 STRIPE_APP_SECRET_KEY_LIVE=sk_live_...
@@ -110,12 +110,14 @@ npm run db:setup
 
 ### 5. Set Up Stripe Webhooks
 
-1. Install Stripe CLI: https://stripe.com/docs/stripe-cli
+1. Install Stripe CLI: <https://stripe.com/docs/stripe-cli>
 2. Login to Stripe CLI: `stripe login`
 3. Forward webhooks to local server:
+
    ```bash
-   stripe listen --forward-to localhost:3030/api/stripe/webhook
+   stripe listen --forward-to localhost:3006/api/stripe/webhook
    ```
+
 4. Copy the webhook signing secret to `.env.local`
 
 ### 6. Run Development Server
@@ -124,7 +126,7 @@ npm run db:setup
 npm run dev
 ```
 
-Visit http://localhost:3030
+Visit <http://localhost:3006>
 
 ## Database Schema
 
@@ -279,6 +281,7 @@ const response = await fetch('/api/protected/stripe-app', {
 ### Webhook Handling
 
 The webhook handler automatically:
+
 - Syncs customer data
 - Updates subscription status
 - Handles subscription lifecycle events
@@ -315,6 +318,7 @@ To change the schema later, edit `setup.sql` (for fresh installs) and run matchi
 ### Environment Variables for Production
 
 Update these in production:
+
 - `BETTER_AUTH_URL` - Your production domain
 - `BETTER_AUTH_SECRET` - Generate a new secure secret
 - `STRIPE_WEBHOOK_SECRET` - Create production webhook endpoint

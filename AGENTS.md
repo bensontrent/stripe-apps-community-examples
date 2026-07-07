@@ -45,7 +45,7 @@ All addressed 2026-07-05, except one leftover file:
 - The proxy strips `x-auth-type`/`x-stripe-verified` from incoming requests and sets them after verification — routes trust them; never remove that stripping.
 - Ported from Parcelcraft's `middleware.ts`/`auth.ts` references; Firebase intentionally dropped (Better Auth is the session layer).
 - `.env.example` was rewritten and now matches `lib/stripe.ts` (it was stale) plus the new auth vars; `src/types/env.d.ts` matches.
-- `stripe-app/src/api/backend.ts` — signed-fetch client (`fetchStripeSignature`) with example calls, pointing at `http://localhost:3030` in dev (`stripe apps start` allows http://localhost without a CSP entry); `stripe-app.json` CSP `connect-src` lists a placeholder https URL users must replace before publishing. The backend dev server runs on port **3030** (`next dev -p 3030`, changed from 3000 on 2026-07-07).
+- `stripe-app/src/api/backend.ts` — signed-fetch client (`fetchStripeSignature`) with example calls, pointing at `http://localhost:3006` in dev (`stripe apps start` allows <http://localhost> without a CSP entry); `stripe-app.json` CSP `connect-src` lists a placeholder https URL users must replace before publishing. The backend dev server runs on port **3006** (`next dev -p 3006`, changed from 3000 on 2026-07-07).
 - New dep: `jose` in nextjs-backend.
 
 ## Suggested next session tasks

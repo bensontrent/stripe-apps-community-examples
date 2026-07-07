@@ -18,7 +18,7 @@ if (process.stdout.isTTY) {
 
   const lines = hasEnv
     ? [
-      `${bold('Setup:')} .env.local found. When the checklist at http://localhost:3030`,
+      `${bold('Setup:')} .env.local found. When the checklist at http://localhost:3006`,
       `is all green, delete ${bold('nextjs-backend/delete_me_after_setup/')} to remove`,
       'this message.',
     ]

@@ -17,7 +17,7 @@
 npm run setup
 ```
 
-While the `delete_me_after_setup/` folder exists, <http://localhost:3030> shows a live checklist of anything still missing; delete the folder once it's green.
+While the `delete_me_after_setup/` folder exists, <http://localhost:3006> shows a live checklist of anything still missing; delete the folder once it's green.
 
 <details>
 <summary>Manual alternative</summary>
@@ -79,7 +79,7 @@ With `SUPABASE_SCHEMA` set, `npm run db:setup` creates the dedicated schema, ins
 stripe login
 
 # Forward webhooks (keep this running in a separate terminal)
-stripe listen --forward-to localhost:3030/api/stripe/webhook
+stripe listen --forward-to localhost:3006/api/stripe/webhook
 ```
 
 Copy the webhook signing secret that appears and add it to `.env.local` as `STRIPE_WEBHOOK_SECRET_TEST_CONNECTED`
@@ -90,14 +90,14 @@ Copy the webhook signing secret that appears and add it to `.env.local` as `STRI
 npm run dev
 ```
 
-Visit <http://localhost:3030>
+Visit <http://localhost:3006>
 
 ### 5. Test the Application
 
-1. Go to <http://localhost:3030/login>
+1. Go to <http://localhost:3006/login>
 2. Create a new account
 3. Sign in
-4. Visit <http://localhost:3030/account> to see your account page
+4. Visit <http://localhost:3006/account> to see your account page
 
 ## Architecture Overview
 

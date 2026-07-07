@@ -174,21 +174,21 @@ export default async function SetupChecklist() {
         },
         ...(schema !== 'public'
             ? [
-                  {
-                      status: (rest.ok ? 'done' : 'todo') as Status,
-                      label: `Schema “${schema}” exposed to the Supabase API`,
-                      detail: rest.error,
-                      fix: (
-                          <>
-                              In the Supabase dashboard open <em>Settings → API</em> and add{' '}
-                              <Code>{schema}</Code> to <em>Exposed schemas</em>, then reload this
-                              page. Until then <Code>supabase-js</Code> can&apos;t query the schema
-                              even though the tables exist. (This check runs once the API keys are
-                              set and the tables are created.)
-                          </>
-                      ),
-                  },
-              ]
+                {
+                    status: (rest.ok ? 'done' : 'todo') as Status,
+                    label: `Schema “${schema}” exposed to the Supabase API`,
+                    detail: rest.error,
+                    fix: (
+                        <>
+                            In the Supabase dashboard open <em>Settings → API</em> and add{' '}
+                            <Code>{schema}</Code> to <em>Exposed schemas</em>, then reload this
+                            page. Until then <Code>supabase-js</Code> can&apos;t query the schema
+                            even though the tables exist. (This check runs once the API keys are
+                            set and the tables are created.)
+                        </>
+                    ),
+                },
+            ]
             : []),
         {
             status:
@@ -244,7 +244,7 @@ export default async function SetupChecklist() {
             fix: (
                 <>
                     In a separate terminal run{' '}
-                    <Code>stripe listen --forward-to localhost:3030/api/stripe/webhook</Code> and copy
+                    <Code>stripe listen --forward-to localhost:3006/api/stripe/webhook</Code> and copy
                     the printed <Code>whsec_…</Code> value into <Code>.env.local</Code>.
                 </>
             ),

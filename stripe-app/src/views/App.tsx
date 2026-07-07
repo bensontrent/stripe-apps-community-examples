@@ -18,7 +18,7 @@
 //      query string. Open it in a new tab: the browser has no session or
 //      headers, yet the route-level check passes.
 //
-// Run the backend first: `npm run dev` in nextjs-backend (localhost:3030).
+// Run the backend first: `npm run dev` in nextjs-backend (localhost:3006).
 // Local previews via `stripe apps start` may fetch localhost; uploaded
 // apps can only reach the URLs listed in stripe-app.json's connect-src.
 // ============================================================================
@@ -109,7 +109,7 @@ const App = (context: ExtensionContextValue) => {
         <Banner
           type="default"
           title="Local demo"
-          description="Start the backend first: npm run dev in nextjs-backend (localhost:3030)."
+          description="Start the backend first: npm run dev in nextjs-backend (localhost:3006)."
         />
 
         {/* ------------------------------------------------------------- */}

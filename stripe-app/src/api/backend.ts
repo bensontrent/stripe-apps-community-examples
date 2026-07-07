@@ -22,7 +22,7 @@ import { fetchStripeSignature } from '@stripe/ui-extension-sdk/utils';
 
 // Point this at your deployed backend. `stripe apps start` allows
 // http://localhost for development; published apps must use https.
-const BACKEND_BASE = 'http://localhost:3030';
+const BACKEND_BASE = 'http://localhost:3006';
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
@@ -129,8 +129,8 @@ async function signedFetch<T>(
     throw new BackendConnectionError(
       `Couldn't reach the backend at ${BACKEND_BASE}: ${detail}`,
       'Is the backend running? Start it with `npm run dev` in ' +
-        'nextjs-backend. For a deployed backend, its URL must also be ' +
-        'listed in connect-src in stripe-app.json.',
+      'nextjs-backend. For a deployed backend, its URL must also be ' +
+      'listed in connect-src in stripe-app.json.',
     );
   }
 

@@ -244,7 +244,7 @@ export default async function SetupChecklist() {
             fix: (
                 <>
                     In a separate terminal run{' '}
-                    <Code>stripe listen --forward-to localhost:3000/api/stripe/webhook</Code> and copy
+                    <Code>stripe listen --forward-to localhost:3030/api/stripe/webhook</Code> and copy
                     the printed <Code>whsec_…</Code> value into <Code>.env.local</Code>.
                 </>
             ),

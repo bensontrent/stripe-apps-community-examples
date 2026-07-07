@@ -70,7 +70,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Better Auth
 BETTER_AUTH_SECRET=your-secret-key-min-32-chars
-BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_URL=http://localhost:3030
 
 # Stripe (see src/lib/stripe.ts for the full list, incl. optional vars)
 STRIPE_APP_SECRET_KEY_LIVE=sk_live_...
@@ -114,7 +114,7 @@ npm run db:setup
 2. Login to Stripe CLI: `stripe login`
 3. Forward webhooks to local server:
    ```bash
-   stripe listen --forward-to localhost:3000/api/stripe/webhook
+   stripe listen --forward-to localhost:3030/api/stripe/webhook
    ```
 4. Copy the webhook signing secret to `.env.local`
 
@@ -124,7 +124,7 @@ npm run db:setup
 npm run dev
 ```
 
-Visit http://localhost:3000
+Visit http://localhost:3030
 
 ## Database Schema
 

@@ -3,7 +3,7 @@
  * One-time setup wizard for the Stripe Apps community example backend.
  *
  * Everything in delete_me_after_setup/ is run-once scaffolding: once your
- * .env.local is written and the checklist at http://localhost:3000 is green,
+ * .env.local is written and the checklist at http://localhost:3030 is green,
  * delete the whole folder — nothing in it is used at runtime.
  *
  * Run from the repo root:
@@ -144,7 +144,7 @@ const TEMPLATE_KEYS = new Set([
 
 function buildEnv(v, extras) {
   // Required keys get a REPLACE_ME placeholder when unset (the checklist at
-  // http://localhost:3000 flags them); optional keys stay commented out.
+  // http://localhost:3030 flags them); optional keys stay commented out.
   const req = (key, placeholder) => `${key}=${v[key] !== undefined ? v[key] : placeholder}`;
   const opt = (key, placeholder) =>
     v[key] !== undefined ? `${key}=${v[key]}` : `# ${key}=${placeholder}`;
@@ -152,7 +152,7 @@ function buildEnv(v, extras) {
   let out = `# ============================================================================
 #  Environment variables — written by delete_me_after_setup/setup.mjs
 #  See .env.example for full documentation of every variable.
-#  REPLACE_ME values still need filling in; http://localhost:3000 shows a
+#  REPLACE_ME values still need filling in; http://localhost:3030 shows a
 #  live checklist of what is missing while the setup folder exists.
 # ============================================================================
 
@@ -171,15 +171,15 @@ ${opt('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'REPLACE_ME')}
 
 # --- Better Auth --------------------------------------------------------------
 ${req('BETTER_AUTH_SECRET', 'REPLACE_ME')}
-${req('BETTER_AUTH_URL', 'http://localhost:3000')}
-${req('NEXT_PUBLIC_BETTER_AUTH_URL', 'http://localhost:3000')}
+${req('BETTER_AUTH_URL', 'http://localhost:3030')}
+${req('NEXT_PUBLIC_BETTER_AUTH_URL', 'http://localhost:3030')}
 
 # --- Stripe (see src/lib/stripe.ts for the 2-accounts x 3-environments model) -
 ${req('STRIPE_SECRET_KEY_TEST', 'sk_test_REPLACE_ME')}
 ${req('STRIPE_SECRET_KEY_LIVE', 'sk_live_REPLACE_ME')}
 ${req('STRIPE_SECRET_KEY_MANAGED_SANDBOX', 'sk_test_REPLACE_ME')}
 
-# For local dev: run \`stripe listen --forward-to localhost:3000/api/stripe/webhook\`
+# For local dev: run \`stripe listen --forward-to localhost:3030/api/stripe/webhook\`
 # and put the printed whsec_... into STRIPE_WEBHOOK_SECRET_TEST_CONNECTED.
 ${req('STRIPE_WEBHOOK_SECRET_TEST_CONNECTED', 'whsec_REPLACE_ME')}
 ${req('STRIPE_WEBHOOK_SECRET_LIVE_CONNECTED', 'whsec_REPLACE_ME')}
@@ -258,8 +258,8 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
       : `${green('✔')} All random secrets already set — kept as-is.`,
   );
 
-  if (!have('BETTER_AUTH_URL')) v.BETTER_AUTH_URL = 'http://localhost:3000';
-  if (!have('NEXT_PUBLIC_BETTER_AUTH_URL')) v.NEXT_PUBLIC_BETTER_AUTH_URL = 'http://localhost:3000';
+  if (!have('BETTER_AUTH_URL')) v.BETTER_AUTH_URL = 'http://localhost:3030';
+  if (!have('NEXT_PUBLIC_BETTER_AUTH_URL')) v.NEXT_PUBLIC_BETTER_AUTH_URL = 'http://localhost:3030';
   if (!have('NODE_ENV')) v.NODE_ENV = 'development';
 
   // 3. Database.
@@ -305,7 +305,7 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
       }
       v.DATABASE_URL = url;
     } else {
-      console.log(dim('  Skipped — the checklist at http://localhost:3000 will remind you.'));
+      console.log(dim('  Skipped — the checklist at http://localhost:3030 will remind you.'));
     }
   }
 
@@ -324,7 +324,7 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
       validate: (s) => (s ? null : 'Paste the service_role key (it stays on your machine)'),
     });
   } else {
-    console.log(dim('  Skipped — the checklist at http://localhost:3000 will remind you.'));
+    console.log(dim('  Skipped — the checklist at http://localhost:3030 will remind you.'));
   }
 
   // 5. public schema, or a dedicated one on a shared project?
@@ -407,7 +407,7 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
     );
   if (!have('STRIPE_SECRET_KEY_TEST')) todo.push('Paste your Stripe test key into STRIPE_SECRET_KEY_TEST');
   todo.push(
-    'Local webhooks: `stripe listen --forward-to localhost:3000/api/stripe/webhook`\n    → copy the printed whsec_ into STRIPE_WEBHOOK_SECRET_TEST_CONNECTED',
+    'Local webhooks: `stripe listen --forward-to localhost:3030/api/stripe/webhook`\n    → copy the printed whsec_ into STRIPE_WEBHOOK_SECRET_TEST_CONNECTED',
   );
   todo.push(
     'After your first `npm run stripe:upload`: copy the app "Signing secret" from the\n    Stripe Developers Dashboard into STRIPE_APP_SIGNING_SECRET',
@@ -416,7 +416,7 @@ ${dim(`Writes ${path.relative(process.cwd(), envPath) || envPath}. Nothing leave
   console.log(`\n${bold('Next steps')}`);
   for (const t of todo) console.log(`  ${yellow('•')} ${t}`);
   console.log(`
-  Start everything with ${cyan('npm run dev')} — ${cyan('http://localhost:3000')} shows a live
+  Start everything with ${cyan('npm run dev')} — ${cyan('http://localhost:3030')} shows a live
   setup checklist covering all of the above.
 
   ${bold('When the checklist is green, delete nextjs-backend/delete_me_after_setup/')}

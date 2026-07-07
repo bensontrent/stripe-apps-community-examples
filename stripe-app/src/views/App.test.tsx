@@ -91,7 +91,7 @@ describe("App", () => {
     mockCreateDownloadLink.mockResolvedValue({
       token: "jwt-token",
       expiresIn: "15m",
-      url: "http://localhost:3000/api/public/download?token=jwt-token&account=acct_123",
+      url: "http://localhost:3030/api/public/download?token=jwt-token&account=acct_123",
     });
 
     const { wrapper, update } = render(<App {...getMockContextProps()} />);

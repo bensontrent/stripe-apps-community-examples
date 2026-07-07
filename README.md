@@ -96,7 +96,7 @@ npm run setup
 
 It generates every random secret for you (no `openssl` needed), helps you connect a Supabase database — an existing project or a brand-new free one, into the `public` schema or a dedicated one (so you can reuse a project without using up a free-tier slot) — takes your Supabase API keys and Stripe test key, writes `nextjs-backend/.env.local`, and offers to create the database tables (`npm run db:setup`).
 
-While the [`nextjs-backend/delete_me_after_setup/`](nextjs-backend/delete_me_after_setup/) folder exists, the dev server home page (<http://localhost:3000>) shows a **live setup checklist** of anything still missing. When it's all green, delete that folder — the wizard, install banner, and checklist all disappear (none of it is used at runtime).
+While the [`nextjs-backend/delete_me_after_setup/`](nextjs-backend/delete_me_after_setup/) folder exists, the dev server home page (<http://localhost:3030>) shows a **live setup checklist** of anything still missing. When it's all green, delete that folder — the wizard, install banner, and checklist all disappear (none of it is used at runtime).
 
 <details>
 <summary>Prefer manual setup?</summary>
@@ -137,7 +137,7 @@ From the repo root:
 npm run dev
 ```
 
-This starts the Next.js backend (<http://localhost:3000>) and the Stripe App preview (`stripe apps start`, which opens the Stripe Dashboard) side by side. You can also run them individually with `npm run dev:backend` and `npm run dev:app`.
+This starts the Next.js backend (<http://localhost:3030>) and the Stripe App preview (`stripe apps start`, which opens the Stripe Dashboard) side by side. You can also run them individually with `npm run dev:backend` and `npm run dev:app`.
 
 ## Root scripts
 

@@ -22,7 +22,7 @@ import { fetchStripeSignature } from '@stripe/ui-extension-sdk/utils';
 
 // Point this at your deployed backend. `stripe apps start` allows
 // http://localhost for development; published apps must use https.
-const BACKEND_BASE = 'http://localhost:3000';
+const BACKEND_BASE = 'http://localhost:3030';
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 

@@ -8,7 +8,7 @@ configured, delete this whole folder** — nothing in it is used at runtime.
 | `setup.mjs` | The interactive wizard (`npm run setup` from the repo root). Generates every random secret, walks you through connecting a Supabase database (an existing project or a new free one, into `public` or an isolated schema), takes your Stripe test key, writes `nextjs-backend/.env.local`, and offers to create the database tables. `npm run setup -- --dry-run` shows the file it would write without writing anything. |
 | `banner.js` | Prints the "run `npm run setup`" reminder after `npm install` and before `npm run dev`. |
 
-While this folder exists, the dev server home page (<http://localhost:3000>)
+While this folder exists, the dev server home page (<http://localhost:3030>)
 shows a live setup checklist rendered by `src/components/SetupChecklist.tsx`.
 
 Deleting this folder:

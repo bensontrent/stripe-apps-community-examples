@@ -26,7 +26,7 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
   - [x] Secure token url links from app
   - [x] User login & authentication from Stripe app to next.js
 - [ ] Creative component examples: Password input, Address suggestion through Google Places API, Unified Container wrapper
-- [ ] Login component with Better Auth backend
+- [x] Login component with Better Auth backend
 - [ ] Complex routing examples
 - [ ] Full page app example
 - [ ] Connected webhooks

@@ -110,11 +110,10 @@ Visit <http://localhost:3006>
 
 ### Database Schema
 
-- **users** / **sessions** / **auth_accounts** / **verifications**: Better Auth tables (`auth_accounts` = sign-in methods, not Stripe accounts)
-- **stripe_accounts** + **stripe_account_users**: Connected Stripe accounts, many-to-many with users
-- **stripe_app_installations**: Install state per account per livemode
-- **stripe_account_settings** / **stripe_account_user_settings**: Account-wide and per-user settings, isolated per livemode
-- **billing_customers** / **billing_subscriptions**: Publisher-side monetization (each user is a Customer in the publisher's Stripe account)
+- **users** / **sessions** / **auth_accounts** / **verifications**: Better Auth tables (`auth_accounts` = sign-in methods, not Stripe accounts); `users` also carries app-owned settings and the user's publisher-side Customer ids
+- **stripe_accounts**: Connected Stripe accounts, one row per `acct_...` id — account settings and live/test install state live right on the row
+- **memberships**: User ↔ Stripe account many-to-many, with the user's role and per-account settings
+- **subscriptions**: Publisher-side monetization, synced from the billing account's webhooks
 
 ### API Structure
 

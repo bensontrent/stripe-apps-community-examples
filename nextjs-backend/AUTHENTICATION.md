@@ -125,6 +125,40 @@ The proxy only does an optimistic cookie check (cheap, no DB hit). Route
 handlers do the real verification with `auth.api.getSession()` — see
 [`/api/protected/stripe-app`](src/app/api/protected/stripe-app/route.ts).
 
+The browser-facing pages live in the [`(login)` route group](src/app/(login)):
+`/login`, `/register`, `/reset-password`, and `/confirm` (the password-reset
+landing page — in this example the reset link is printed to the backend
+terminal; wire a real email service into `sendResetPassword` in
+`src/lib/auth.ts`). `/end-session` is a generic sign-out landing page.
+
+## The Stripe App user login flow
+
+A Stripe App UI extension can't set cookies or render its own login form, so
+"logging in" combines two flavors above — **signature auth** (the app) and
+**session auth** (the browser) — in a handshake:
+
+1. The app's [`Login` component](../stripe-app/src/components/Login.tsx)
+   mints a random `state` key and opens `/stripe?state=…` in a browser tab.
+2. The user signs in there like any browser visitor (the proxy bounces them
+   through `/login` or `/register` and back, query string intact). The
+   [`/stripe` page](src/app/(login)/stripe/page.tsx) then POSTs the state to
+   `/api/stripe-app/session` (session auth), storing state → user for 15
+   minutes (as a `verifications` row — no extra table).
+3. Meanwhile the app polls `GET /api/stripe-app/verify?state=…` (signature
+   auth). Once the state exists, the backend links the **signed** dashboard
+   identity (`stripe-account-id` + `stripe-user-id`) to that user in
+   `stripe_app_sessions`, upserts a `memberships` row, and consumes the
+   state (one-shot).
+4. From then on `GET /api/stripe-app/userinfo` (signature auth) resolves the
+   dashboard user to the app user on every request — no cookies involved.
+   "Log out" is `DELETE /api/stripe-app/session` (signature auth) plus the
+   `/stripe-logout` page, which ends the browser session.
+
+The server-side halves live in
+[`src/lib/stripe-app-session.ts`](src/lib/stripe-app-session.ts); the
+app-side halves in
+[`stripe-app/src/api/backend.ts`](../stripe-app/src/api/backend.ts).
+
 ## Environment variables
 
 See [`.env.example`](.env.example) — the "Proxy authentication" section has

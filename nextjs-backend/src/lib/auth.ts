@@ -74,6 +74,14 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
+    // The /reset-password page calls authClient.requestPasswordReset() with
+    // redirectTo: '/confirm'; Better Auth then asks us to deliver the link.
+    // No email provider is wired into this example, so the link is printed
+    // to the backend terminal — swap in your email service (Resend, SES,
+    // Postmark, …) here.
+    sendResetPassword: async ({ user, url }) => {
+      console.log(`[auth] Password reset link for ${user.email}: ${url}`);
+    },
   },
   socialProviders: {},
   advanced: {

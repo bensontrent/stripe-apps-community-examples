@@ -54,7 +54,12 @@ import {
  * genuinely public or authenticates AT THE ROUTE LEVEL (noted inline).
  */
 const PUBLIC_ROUTES = [
-  '/login', // sign-in / sign-up page
+  '/login', // sign-in page
+  '/register', // sign-up page
+  '/reset-password', // request a password-reset email
+  '/confirm', // password-reset landing page (token arrives in the URL)
+  '/stripe-logout', // Stripe App logout landing page
+  '/end-session', // generic sign-out page
   '/api/auth', // Better Auth handles its own auth (cookies, CSRF)
   '/api/stripe/webhook', // route verifies the Stripe webhook signature
   '/api/public', // route verifies a JWT passed in the URL query
@@ -156,7 +161,9 @@ export async function proxy(request: NextRequest) {
     }
 
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
+    // Keep the query string so e.g. /stripe?state=… survives the login
+    // round-trip (the Stripe App login handshake depends on it).
+    loginUrl.searchParams.set('redirect', pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
 

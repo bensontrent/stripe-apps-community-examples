@@ -71,36 +71,37 @@ Database                   queries user data
 
 **User management (Better Auth):**
 
-- `users`: Core user identity, plus app-global `settings` jsonb (mode-independent preferences)
+- `users`: Core user identity, plus app-owned columns: `settings` jsonb (preferences) and the user's Customer ids in the publisher's billing account (`stripe_customer_id_live` / `stripe_customer_id_test`). Better Auth ignores columns it doesn't know about
 - `sessions`: Active authentication sessions
 - `auth_accounts`: Sign-in methods (email/password credential or OAuth provider). This is Better Auth's "account" model - it is unrelated to Stripe accounts
 - `verifications`: Email verification / password reset values
 
 **Merchant side (connected Stripe accounts the app is installed into):**
 
-- `stripe_accounts`: One row per Stripe account (`acct_...`). The same acct_ id covers live and test mode; mode-specific data lives in the child tables, keyed by a `livemode` flag so live and test never affect each other
-- `stripe_account_users`: User <-> Stripe account membership (many-to-many: users can belong to multiple Stripe accounts, and Stripe accounts have multiple users)
-- `stripe_app_installations`: Install state per (account, livemode)
-- `stripe_account_settings`: Settings shared by every user of the account, per (account, livemode) - e.g. the company office address
-- `stripe_account_user_settings`: Per-user settings within an account, per (user, account, livemode) - e.g. which address is that user's local company address
+- `stripe_accounts`: One row per Stripe account — the `acct_...` id is the primary key (Stripe ids are unique and immutable, so no surrogate uuid). Carries the account-wide `settings` jsonb (e.g. the company office address) and install state as two nullable columns: `live_installation_id` / `test_installation_id`, where NULL means "not installed in that mode". A general sandbox has its own `acct_...` id, so it is simply another row
+- `memberships`: User <-> Stripe account many-to-many (users can belong to multiple Stripe accounts, and Stripe accounts have multiple users). Data about the relationship lives here: the user's `role` in that account (owner/admin/member; the first registrant becomes owner) and their per-account `settings` jsonb (e.g. which address is that user's local company address). Composite primary key (stripe_account_id, user_id)
+- `stripe_app_sessions`: Which app user is logged in inside the Stripe Dashboard — one row per dashboard user (`usr_...`) per Stripe account, written by the Stripe App login handshake (`/api/stripe-app/verify`) and deleted on app logout. The short-lived handshake states themselves ride on `verifications` (identifier `stripe-app-login:<state>`), so they need no table of their own
 
 **Publisher side (monetization):**
 
-- `billing_customers`: Each app user as a Customer (`cus_...`) in the app publisher's own Stripe account, one per livemode
-- `billing_subscriptions`: Subscription state synced from the publisher account's webhooks
+- `subscriptions`: Subscription state synced from the publisher account's webhooks. The `sub_...` id is the primary key; `livemode` stays as a column because live and test subscriptions are genuinely different Stripe objects
 
 **Relationships:**
 
 ```
-users (n) <-> (n) stripe_accounts          via stripe_account_users
-stripe_accounts (1) -> (n) stripe_app_installations    one per livemode
-stripe_accounts (1) -> (n) stripe_account_settings     one per livemode
-users x stripe_accounts -> stripe_account_user_settings  one per livemode
-users (1) -> (n) billing_customers         one per livemode
-users (1) -> (n) billing_subscriptions
+users (n) <-> (n) stripe_accounts    via memberships (role + settings on the edge)
+users (1) -> (n) stripe_app_sessions (dashboard logins)
+users (1) -> (n) subscriptions
 users (1) -> (n) sessions
 users (1) -> (n) auth_accounts
 ```
+
+**Where `livemode` lives (and doesn't):** it is kept only where Stripe itself
+splits data by mode — billing customer ids (two columns on `users`),
+installation ids (two columns on `stripe_accounts`), and `subscriptions.livemode`.
+App-owned data (roles, settings) is mode-independent; if an account ever needs
+mode-split settings, nest them inside the jsonb (`{"live": ..., "test": ...}`)
+rather than forking tables per mode.
 
 ### 3. API Route Structure
 
@@ -134,7 +135,7 @@ Stripe -> Webhook Endpoint -> Signature Verification
 Each webhook endpoint is configured with query string params (e.g.
 `/api/stripe/webhook?mode=live&type=connected`) so the handler can pick the
 right Stripe client and signing secret per environment. Subscription events
-are upserted into `billing_subscriptions` (publisher-side billing); the
+are upserted into `subscriptions` (publisher-side billing); the
 customer event handler is currently a logging stub.
 
 ## Security Considerations
@@ -181,7 +182,7 @@ customer event handler is currently a logging stub.
 2. Stripe sends webhook to /api/stripe/webhook
 3. Signature verified
 4. Event type routed to handler
-5. Database updated with new subscription data (billing_subscriptions)
+5. Database updated with new subscription data (subscriptions)
 6. Response sent to Stripe (200 OK)
 ```
 
@@ -192,10 +193,25 @@ customer event handler is currently a logging stub.
 2. Stripe redirects to your app with installation details
 3. User authenticates (if not already)
 4. POST /api/protected/stripe-app
-5. Stripe account, user membership, and installation records upserted
-   (stripe_accounts, stripe_account_users, stripe_app_installations)
+5. Stripe account (with the mode's installation id) and the user's
+   membership upserted (stripe_accounts, memberships)
 6. User sees installation in account page
 ```
+
+### Stripe App Login Flow (inside the dashboard)
+
+```
+1. User presses "Log in" in the Stripe App; the app mints a random state
+   key and opens /stripe?state=... in a browser tab
+2. The proxy bounces new visitors through /login (or /register) and back;
+   the /stripe page posts the state to /api/stripe-app/session (cookie auth)
+3. The app polls /api/stripe-app/verify?state=... with signed requests;
+   the backend claims the state and writes stripe_app_sessions (+ membership)
+4. The app fetches /api/stripe-app/userinfo (signed) to show who is
+   logged in; "Log out" deletes the link and opens /stripe-logout
+```
+
+See AUTHENTICATION.md ("The Stripe App user login flow") for details.
 
 ## Scalability Considerations
 

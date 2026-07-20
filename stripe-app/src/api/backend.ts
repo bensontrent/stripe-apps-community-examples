@@ -22,7 +22,7 @@ import { fetchStripeSignature } from '@stripe/ui-extension-sdk/utils';
 
 // Point this at your deployed backend. `stripe apps start` allows
 // http://localhost for development; published apps must use https.
-const BACKEND_BASE = 'http://localhost:3006';
+export const BACKEND_BASE = 'http://localhost:3006';
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
@@ -37,6 +37,8 @@ export class BackendConnectionError extends Error {
   constructor(
     message: string,
     readonly hint: string,
+    /** HTTP status when the backend answered with an error, else undefined. */
+    readonly status?: number,
   ) {
     super(message);
     this.name = 'BackendConnectionError';
@@ -140,6 +142,7 @@ async function signedFetch<T>(
     throw new BackendConnectionError(
       `Backend responded ${response.status} ${response.statusText}: ${detail}`,
       statusHint(response.status),
+      response.status,
     );
   }
 
@@ -184,6 +187,84 @@ export function createDownloadLink(
   return signedFetch<UrlTokenResponse>('POST', '/api/stripe-app/token', context, {
     path: '/api/public/download',
   });
+}
+
+// ---------------------------------------------------------------------------
+//  User login (see src/components/Login.tsx and the backend's
+//  src/lib/stripe-app-session.ts for the full handshake)
+// ---------------------------------------------------------------------------
+
+export type UserInfoResponse = {
+  userId: string;
+  email: string;
+  name: string | null;
+  accountId: string;
+};
+
+/**
+ * Who is logged in inside the dashboard for this account/user, or null when
+ * nobody is (the backend answers 401 in that case).
+ */
+export async function getUserInfo(
+  context: ExtensionContextValue,
+): Promise<UserInfoResponse | null> {
+  try {
+    return await signedFetch<UserInfoResponse>(
+      'GET',
+      '/api/stripe-app/userinfo',
+      context,
+    );
+  } catch (error) {
+    if (error instanceof BackendConnectionError && error.status === 401) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * One poll of the login handshake: true once the user has finished logging
+ * in in the browser tab (the backend links them and answers 200), false
+ * while the handshake is still pending (404).
+ */
+export async function verifyLoginState(
+  context: ExtensionContextValue,
+  state: string,
+): Promise<boolean> {
+  try {
+    await signedFetch(
+      'GET',
+      `/api/stripe-app/verify?${new URLSearchParams({ state })}`,
+      context,
+    );
+    return true;
+  } catch (error) {
+    if (error instanceof BackendConnectionError && error.status === 404) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/** Log out: the backend forgets this dashboard identity's link. */
+export function deleteAppSession(
+  context: ExtensionContextValue,
+): Promise<{ message: string }> {
+  return signedFetch<{ message: string }>(
+    'DELETE',
+    '/api/stripe-app/session',
+    context,
+  );
+}
+
+/** Browser URL the app opens for the user to log in (state = handshake key). */
+export function loginPageUrl(state: string): string {
+  return `${BACKEND_BASE}/stripe?${new URLSearchParams({ state })}`;
+}
+
+/** Browser URL that ends the user's browser session. */
+export function logoutPageUrl(): string {
+  return `${BACKEND_BASE}/stripe-logout`;
 }
 
 // Bearer-token auth from a Stripe App: store a user-provided key with

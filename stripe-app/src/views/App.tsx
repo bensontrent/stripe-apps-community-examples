@@ -18,6 +18,10 @@
 //      query string. Open it in a new tab: the browser has no session or
 //      headers, yet the route-level check passes.
 //
+//   3. User login — the Login component links this dashboard user to a
+//      Better Auth account on the backend via a browser-tab handshake
+//      (see src/components/Login.tsx for the full story).
+//
 // Run the backend first: `npm run dev` in nextjs-backend (localhost:3006).
 // Local previews via `stripe apps start` may fetch localhost; uploaded
 // apps can only reach the URLs listed in stripe-app.json's connect-src.
@@ -44,6 +48,7 @@ import {
   MeResponse,
   UrlTokenResponse,
 } from "../api/backend";
+import Login from "../components/Login";
 import BrandIcon from "./brand_icon.svg";
 
 // One state machine per demo section: idle → loading → success | error.
@@ -211,6 +216,23 @@ const App = (context: ExtensionContextValue) => {
           {link.status === "error" && (
             <RequestError message={link.message} hint={link.hint} />
           )}
+        </Box>
+
+        <Divider />
+
+        {/* ------------------------------------------------------------- */}
+        {/*  3. User login                                                 */}
+        {/* ------------------------------------------------------------- */}
+        <Box css={{ stack: "y", gap: "small" }}>
+          <Inline css={{ font: "heading" }}>3. Log in as an app user</Inline>
+          <Box css={{ color: "secondary", font: "caption" }}>
+            Opens the backend&apos;s login page in a browser tab and links
+            this dashboard user to a Better Auth account. The app itself
+            never sees a cookie or password — after the handshake, signed
+            requests alone identify the user.
+          </Box>
+
+          <Login context={context} />
         </Box>
       </Box>
     </ContextView>

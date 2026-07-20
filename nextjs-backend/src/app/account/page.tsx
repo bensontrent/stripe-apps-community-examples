@@ -4,18 +4,12 @@ import { useSession, signOut } from '@/lib/auth-client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface Installation {
-  id: string;
-  livemode: boolean;
-  installationId: string;
-  isActive: boolean;
-  createdAt: string;
-}
-
 interface StripeAccount {
   stripeAccountId: string;
   name: string | null;
-  installations: Installation[];
+  role: string;
+  liveInstallationId: string | null;
+  testInstallationId: string | null;
 }
 
 export default function AccountPage() {
@@ -100,55 +94,52 @@ export default function AccountPage() {
             <p className="text-gray-600">No connected Stripe accounts found.</p>
           ) : (
             <div className="space-y-4">
-              {accounts.map((account) => (
-                <div
-                  key={account.stripeAccountId}
-                  className="border rounded-lg p-4 hover:shadow-md transition"
-                >
-                  <p className="font-medium">
-                    {account.name || 'Stripe Account'}: {account.stripeAccountId}
-                  </p>
-                  {account.installations.length === 0 ? (
-                    <p className="text-sm text-gray-600 mt-2">No installations recorded.</p>
-                  ) : (
-                    <div className="mt-2 space-y-2">
-                      {account.installations.map((installation) => (
-                        <div
-                          key={installation.id}
-                          className="flex justify-between items-start"
-                        >
-                          <div>
+              {accounts.map((account) => {
+                const installations = [
+                  { mode: 'Live', installationId: account.liveInstallationId },
+                  { mode: 'Test', installationId: account.testInstallationId },
+                ].filter((i) => i.installationId !== null);
+
+                return (
+                  <div
+                    key={account.stripeAccountId}
+                    className="border rounded-lg p-4 hover:shadow-md transition"
+                  >
+                    <div className="flex justify-between items-start">
+                      <p className="font-medium">
+                        {account.name || 'Stripe Account'}: {account.stripeAccountId}
+                      </p>
+                      <span className="px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800 capitalize">
+                        {account.role}
+                      </span>
+                    </div>
+                    {installations.length === 0 ? (
+                      <p className="text-sm text-gray-600 mt-2">Not installed in any mode.</p>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {installations.map((installation) => (
+                          <div
+                            key={installation.mode}
+                            className="flex justify-between items-start"
+                          >
                             <p className="text-sm text-gray-600">
                               Installation ID: {installation.installationId}
                             </p>
-                            <p className="text-sm text-gray-600">
-                              Created: {new Date(installation.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
                             <span
-                              className={`px-3 py-1 rounded-full text-sm ${installation.livemode
+                              className={`px-3 py-1 rounded-full text-sm ${installation.mode === 'Live'
                                 ? 'bg-blue-100 text-blue-800'
                                 : 'bg-yellow-100 text-yellow-800'
                                 }`}
                             >
-                              {installation.livemode ? 'Live' : 'Test'}
-                            </span>
-                            <span
-                              className={`px-3 py-1 rounded-full text-sm ${installation.isActive
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                                }`}
-                            >
-                              {installation.isActive ? 'Active' : 'Inactive'}
+                              {installation.mode}
                             </span>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -104,7 +104,7 @@ Either paste [`setup.sql`](setup.sql) into the Supabase SQL editor and run it, o
 npm run db:setup
 ```
 
-`setup.sql` is the single source of truth for the schema — it creates all 11 tables, their foreign keys, and enables Row Level Security so the public anon key can't touch them (the backend uses the service-role key, which bypasses RLS).
+`setup.sql` is the single source of truth for the schema — it creates all 8 tables, their foreign keys, and enables Row Level Security so the public anon key can't touch them (the backend uses the service-role key, which bypasses RLS).
 
 **Reusing an existing Supabase project?** Set `SUPABASE_SCHEMA` in `.env.local` to install everything into a dedicated Postgres schema instead of `public` — that way the demo doesn't use up one of the free tier's limited project slots. `npm run db:setup` creates the schema, installs the tables there, and grants Supabase's API roles access (`npm run db:setup -- --print` prints that SQL for the SQL editor). One manual step remains: add the schema to **Exposed schemas** in the Supabase dashboard (Settings → API) so `supabase-js` can query it — the setup checklist verifies this for you.
 
@@ -134,23 +134,19 @@ Visit <http://localhost:3006>
 
 Better Auth (sign-in):
 
-- **users**: User accounts with email authentication, plus app-global `settings` jsonb
+- **users**: User accounts with email authentication, plus app-owned columns: `settings` jsonb and the user's Customer ids in the publisher's Stripe billing account (`stripe_customer_id_live` / `stripe_customer_id_test`)
 - **sessions**: Active user sessions
 - **auth_accounts**: Sign-in methods (credential/OAuth) — Better Auth's "account" model, unrelated to Stripe accounts
 - **verifications**: Email verification / password reset values
 
-Merchant side (connected Stripe accounts; mode-specific tables carry a `livemode` flag so live and test data stay separate):
+Merchant side (connected Stripe accounts):
 
-- **stripe_accounts**: Connected Stripe accounts, one row per `acct_...` id
-- **stripe_account_users**: User ↔ Stripe account membership (many-to-many)
-- **stripe_app_installations**: App install state per account per livemode
-- **stripe_account_settings**: Account-wide settings per account per livemode
-- **stripe_account_user_settings**: Per-user settings within an account, per livemode
+- **stripe_accounts**: One row per `acct_...` id (the Stripe id is the primary key), with account-wide `settings` jsonb and install state as two nullable columns (`live_installation_id` / `test_installation_id` — NULL means not installed in that mode)
+- **memberships**: User ↔ Stripe account many-to-many, carrying the user's `role` in that account and their per-account `settings` jsonb
 
 Publisher side (monetization):
 
-- **billing_customers**: Each user as a Customer in the app publisher's Stripe account, one per livemode
-- **billing_subscriptions**: Subscription data synced from the publisher account
+- **subscriptions**: Subscription data synced from the publisher account's webhooks (the `sub_...` id is the primary key)
 
 ## API Endpoints
 
@@ -250,10 +246,10 @@ const { data: user } = await supabase
   .eq('email', 'user@example.com')
   .maybeSingle();
 
-// Get user with their billing customers (follows the foreign key, like a join)
-const { data: userWithBilling } = await supabase
+// Get user with their subscriptions (follows the foreign key, like a join)
+const { data: userWithSubscriptions } = await supabase
   .from('users')
-  .select('*, billing_customers(*)')
+  .select('*, subscriptions(*)')
   .eq('id', userId)
   .maybeSingle();
 ```
@@ -264,7 +260,7 @@ const { data: userWithBilling } = await supabase
 
 1. User installs your Stripe App
 2. Stripe redirects to your app with installation details
-3. Your app creates an installation record:
+3. Your app registers the installation:
 
 ```typescript
 const response = await fetch('/api/protected/stripe-app', {
@@ -273,10 +269,14 @@ const response = await fetch('/api/protected/stripe-app', {
   body: JSON.stringify({
     stripeAccountId: 'acct_xxx',
     installationId: 'install_xxx',
-    settings: { /* app settings */ },
+    livemode: false,
+    accountSettings: { /* shared by every member of the account */ },
+    userSettings: { /* just for the current user in this account */ },
   }),
 });
 ```
+
+This upserts the `stripe_accounts` row (setting the mode's installation column) and the caller's `memberships` row — the first person to register an account becomes its `owner`.
 
 ### Webhook Handling
 

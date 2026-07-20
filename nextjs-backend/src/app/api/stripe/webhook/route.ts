@@ -66,15 +66,20 @@ export async function POST(req: NextRequest) {
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
 
-        // Find user by stripe customer ID
-        const { data: customerRecord, error: customerError } = await getSupabase()
-          .from('billing_customers')
-          .select('user_id')
-          .eq('stripe_customer_id', subscription.customer as string)
+        // Find the user this customer belongs to. Live and test customer ids
+        // are separate columns on users; the event's livemode picks the one
+        // to match against.
+        const customerColumn = event.livemode
+          ? 'stripe_customer_id_live'
+          : 'stripe_customer_id_test';
+        const { data: user, error: userError } = await getSupabase()
+          .from('users')
+          .select('id')
+          .eq(customerColumn, subscription.customer as string)
           .maybeSingle();
-        if (customerError) throw customerError;
+        if (userError) throw userError;
 
-        if (customerRecord) {
+        if (user) {
           // Upsert subscription
 
           const item = subscription.items.data[0];
@@ -96,16 +101,16 @@ export async function POST(req: NextRequest) {
           };
 
           const { error } = await getSupabase()
-            .from('billing_subscriptions')
+            .from('subscriptions')
             .upsert(
               {
-                user_id: customerRecord.user_id,
-                stripe_subscription_id: subscription.id,
+                id: subscription.id,
+                user_id: user.id,
                 stripe_customer_id: subscription.customer as string,
                 livemode: event.livemode,
                 ...updatedSubscriptionValues,
               },
-              { onConflict: 'stripe_subscription_id' }
+              { onConflict: 'id' }
             );
           if (error) throw error;
         }
@@ -116,13 +121,13 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
 
         const { error } = await getSupabase()
-          .from('billing_subscriptions')
+          .from('subscriptions')
           .update({
             status: 'canceled',
             ended_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq('stripe_subscription_id', subscription.id);
+          .eq('id', subscription.id);
         if (error) throw error;
         break;
       }

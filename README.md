@@ -14,7 +14,7 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 
 | Date | Time | Link |
 |---|---|---|
-| Tue, Jul 7 | 2:00 PM – 2:40 PM EDT | [Join](https://www.stripecommunity.com/public/clubs/stripe-app-developers/events/stripe-app-developers-community-meetup-tlmu8nve5k) |
+
 | Tue, Jul 21 | 2:00 PM – 3:00 PM EDT | [Join](https://www.stripecommunity.com/public/clubs/stripe-app-developers/events/stripe-app-developers-community-meetup-yrlvz6syxc) |
 
 ## Roadmap
@@ -24,6 +24,7 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
   - [x] Local Dev API Keys
   - [x] Stripe Signing Signature Example
   - [x] Secure token url links from app
+  - [x] User login & authentication from Stripe app to next.js
 - [ ] Creative component examples: Password input, Address suggestion through Google Places API, Unified Container wrapper
 - [ ] Login component with Better Auth backend
 - [ ] Complex routing examples

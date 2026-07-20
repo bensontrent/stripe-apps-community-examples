@@ -7,16 +7,17 @@ interface RegisterInstallationBody {
   stripeAccountId: string;
   installationId: string;
   livemode: boolean;
-  // Settings shared by every user of the Stripe account, for this mode
+  // Settings shared by every member of the Stripe account
   // (e.g. the company office address).
   accountSettings?: Json;
-  // Settings for the current user within the Stripe account, for this mode
+  // Settings for the current user within the Stripe account
   // (e.g. the user's local company address).
   userSettings?: Json;
 }
 
-// List the Stripe accounts the current user belongs to, with each account's
-// installations (live and test tracked separately).
+// List the Stripe accounts the current user belongs to, with the user's role
+// and each account's install state (live and test tracked separately —
+// a NULL installation id means "not installed in that mode").
 export async function GET(req: NextRequest) {
   try {
     // Verify the session
@@ -33,38 +34,31 @@ export async function GET(req: NextRequest) {
 
     const supabase = getSupabase();
 
-    // The stripe_accounts(name) part follows the foreign key from
-    // stripe_account_users to stripe_accounts, like a join. Without generated
-    // database types supabase-js can't tell the embed is single-row, so spell
-    // the shape out.
-    const { data: memberships, error: membershipsError } = await supabase
-      .from('stripe_account_users')
-      .select('stripe_account_id, stripe_accounts ( name )')
+    // The stripe_accounts(...) part follows the foreign key from memberships
+    // to stripe_accounts, like a join. Without generated database types
+    // supabase-js can't tell the embed is single-row, so spell the shape out.
+    const { data: memberships, error } = await supabase
+      .from('memberships')
+      .select('stripe_account_id, role, stripe_accounts ( name, live_installation_id, test_installation_id )')
       .eq('user_id', session.user.id)
       .returns<Array<{
         stripe_account_id: string;
-        stripe_accounts: { name: string | null } | null;
+        role: string;
+        stripe_accounts: {
+          name: string | null;
+          live_installation_id: string | null;
+          test_installation_id: string | null;
+        } | null;
       }>>();
 
-    if (membershipsError) throw membershipsError;
-
-    const accountIds = memberships.map((m) => m.stripe_account_id);
-    let installations: Array<{ stripe_account_id: string }> = [];
-    if (accountIds.length > 0) {
-      const { data, error } = await supabase
-        .from('stripe_app_installations')
-        .select('*')
-        .in('stripe_account_id', accountIds);
-      if (error) throw error;
-      installations = data;
-    }
+    if (error) throw error;
 
     const accounts = memberships.map((membership) => ({
       stripeAccountId: membership.stripe_account_id,
       name: membership.stripe_accounts?.name ?? null,
-      installations: installations.filter(
-        (i) => i.stripe_account_id === membership.stripe_account_id
-      ),
+      role: membership.role,
+      liveInstallationId: membership.stripe_accounts?.live_installation_id ?? null,
+      testInstallationId: membership.stripe_accounts?.test_installation_id ?? null,
     }));
 
     return NextResponse.json({ accounts });
@@ -77,8 +71,8 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Register an installation: upserts the Stripe account, the current user's
-// membership in it, and the (account, livemode) installation record.
+// Register an installation: upserts the Stripe account (with the
+// mode-appropriate installation id) and the current user's membership in it.
 export async function POST(req: NextRequest) {
   try {
     // Verify the session
@@ -105,72 +99,65 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabase();
 
-    // ignoreDuplicates makes these "insert if missing, leave alone if present"
-    // (the SQL equivalent of ON CONFLICT DO NOTHING).
-    const { error: accountError } = await supabase
+    // Upsert the account row. Only the columns in the payload are written, so
+    // an existing row keeps its name, settings, and other-mode installation id.
+    const installationColumn = livemode
+      ? 'live_installation_id'
+      : 'test_installation_id';
+
+    const { data: account, error: accountError } = await supabase
       .from('stripe_accounts')
       .upsert(
-        { stripe_account_id: stripeAccountId },
-        { onConflict: 'stripe_account_id', ignoreDuplicates: true }
-      );
-    if (accountError) throw accountError;
-
-    const { error: memberError } = await supabase
-      .from('stripe_account_users')
-      .upsert(
-        { user_id: session.user.id, stripe_account_id: stripeAccountId },
-        { onConflict: 'user_id,stripe_account_id', ignoreDuplicates: true }
-      );
-    if (memberError) throw memberError;
-
-    const { data: installation, error: installationError } = await supabase
-      .from('stripe_app_installations')
-      .upsert(
         {
-          stripe_account_id: stripeAccountId,
-          livemode,
-          installation_id: installationId,
-          is_active: true,
+          id: stripeAccountId,
+          [installationColumn]: installationId,
+          ...(accountSettings !== undefined && { settings: accountSettings }),
           updated_at: new Date().toISOString(),
         },
-        { onConflict: 'stripe_account_id,livemode' }
+        { onConflict: 'id' }
       )
       .select()
       .single();
-    if (installationError) throw installationError;
+    if (accountError) throw accountError;
 
-    if (accountSettings !== undefined) {
-      const { error } = await supabase
-        .from('stripe_account_settings')
-        .upsert(
-          {
-            stripe_account_id: stripeAccountId,
-            livemode,
-            settings: accountSettings,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'stripe_account_id,livemode' }
-        );
-      if (error) throw error;
-    }
+    // The first person to register an account becomes its owner; everyone
+    // after that joins as a member. Note the role is self-assigned by whoever
+    // installs the app — verify it out-of-band before gating anything
+    // sensitive on it.
+    const { count, error: countError } = await supabase
+      .from('memberships')
+      .select('*', { count: 'exact', head: true })
+      .eq('stripe_account_id', stripeAccountId);
+    if (countError) throw countError;
+
+    // ignoreDuplicates makes this "insert if missing, leave alone if present"
+    // (the SQL equivalent of ON CONFLICT DO NOTHING) — an existing membership
+    // keeps its role.
+    const { error: memberError } = await supabase
+      .from('memberships')
+      .upsert(
+        {
+          stripe_account_id: stripeAccountId,
+          user_id: session.user.id,
+          role: count === 0 ? 'owner' : 'member',
+        },
+        { onConflict: 'stripe_account_id,user_id', ignoreDuplicates: true }
+      );
+    if (memberError) throw memberError;
 
     if (userSettings !== undefined) {
       const { error } = await supabase
-        .from('stripe_account_user_settings')
-        .upsert(
-          {
-            user_id: session.user.id,
-            stripe_account_id: stripeAccountId,
-            livemode,
-            settings: userSettings,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,stripe_account_id,livemode' }
-        );
+        .from('memberships')
+        .update({
+          settings: userSettings,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('stripe_account_id', stripeAccountId)
+        .eq('user_id', session.user.id);
       if (error) throw error;
     }
 
-    return NextResponse.json({ installation });
+    return NextResponse.json({ account });
   } catch (error) {
     console.error('Error registering installation:', error);
     return NextResponse.json(

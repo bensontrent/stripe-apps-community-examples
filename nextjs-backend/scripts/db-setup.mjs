@@ -20,7 +20,9 @@ import dotenv from 'dotenv';
 import pg from 'pg';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-dotenv.config({ path: join(root, '.env.local') });
+// quiet: dotenv v17 prints an "injected env" tip to stdout by default, which
+// would corrupt the SQL that `--print` emits.
+dotenv.config({ path: join(root, '.env.local'), quiet: true });
 
 const printOnly = process.argv.includes('--print');
 const schema = process.env.SUPABASE_SCHEMA || 'public';
@@ -35,14 +37,14 @@ if (!/^[a-z_][a-z0-9_]*$/.test(schema)) {
 let sql = readFileSync(join(root, 'setup.sql'), 'utf8');
 
 if (schema !== 'public') {
-  // setup.sql targets `public`: unqualified CREATE TABLEs follow search_path,
-  // and the FK statements name "public" explicitly — point both at the
-  // dedicated schema instead.
+  // Every statement in setup.sql is schema-unqualified (including the inline
+  // REFERENCES clauses), so pointing search_path at the dedicated schema is
+  // all it takes to install everything there.
   sql = [
     `CREATE SCHEMA IF NOT EXISTS "${schema}";`,
     `SET search_path TO "${schema}";`,
     '',
-    sql.replaceAll('"public"', `"${schema}"`),
+    sql,
     '',
     `-- Supabase's REST API roles need to reach the new schema. service_role does`,
     `-- the backend's actual work; anon/authenticated get USAGE only and RLS (no`,

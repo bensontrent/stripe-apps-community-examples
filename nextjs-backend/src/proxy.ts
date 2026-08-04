@@ -54,6 +54,7 @@ import {
  * genuinely public or authenticates AT THE ROUTE LEVEL (noted inline).
  */
 const PUBLIC_ROUTES = [
+  '/docs', // public documentation (rendered from src/content/docs)
   '/login', // sign-in page
   '/register', // sign-up page
   '/reset-password', // request a password-reset email

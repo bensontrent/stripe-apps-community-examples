@@ -13,9 +13,9 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 **Upcoming meetups:**
 
 | Date | Time | Link |
-|---|---|---|
-| Tue, Jul 21 | 2:00 PM – 3:00 PM EDT | [Join](https://www.stripecommunity.com/public/clubs/stripe-app-developers/events/stripe-app-developers-community-meetup-yrlvz6syxc) |
+| --- | --- | --- |
 | Tue, Aug 4 | 2:00 PM – 3:00 PM EDT | [Join](https://www.stripecommunity.com/home/clubs/stripe-app-developers/events/copy-of-stripe-app-developers-community-meetup-hzmch4a90f) |
+| Tue, Aug 18 | 2:00 PM – 3:00 PM EDT | [Join](https://www.stripecommunity.com/public/clubs/stripe-apps-developers/events/copy-of-stripe-app-developers-community-meetup-97s35xa9qg) |
 
 ## Roadmap
 
@@ -34,7 +34,7 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 - [ ] App paywall
 - [ ] App monetization and user billing dashboard
 - [ ] App trial strategies
-- [ ] Demo documentation files: how to document your app to the public with markdoc.dev
+- [X] Demo documentation files: how to document your app to the public with markdoc.dev
 - [ ] App settings (user, account-wide and test mode settings)
 - [ ] Security best practices
 - [ ] Hosting recommendation
@@ -43,7 +43,7 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 This repo contains two projects that work together:
 
 | Folder | What it is | Runs on |
-|---|---|---|
+| --- | --- | --- |
 | [`stripe-app/`](stripe-app/) | A Stripe App (UI extension) that renders inside the Stripe Dashboard | Stripe CLI (`stripe apps start`) |
 | [`nextjs-backend/`](nextjs-backend/) | A Next.js API backend with auth (Better Auth) and Supabase Postgres | Local dev / Vercel |
 
@@ -143,7 +143,7 @@ This starts the Next.js backend (<http://localhost:3006>) and the Stripe App pre
 ## Root scripts
 
 | Script | What it does |
-|---|---|
+| --- | --- |
 | `npm install` | Installs dependencies for both projects |
 | `npm run setup` | One-time setup wizard: writes `nextjs-backend/.env.local` (delete `nextjs-backend/delete_me_after_setup/` when done) |
 | `npm run dev` | Runs backend + Stripe App preview together |

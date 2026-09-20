@@ -2,7 +2,7 @@
 
 > 🤓👓 **Not an official Stripe publication.** This is a community-maintained repo, unaffiliated with Stripe. Contributions welcome — and please steal this code and use it freely in your own project.
 
-Quickstart for building a Stripe App with a real backend: a Stripe App (UI extension) plus a Next.js backend that is published as a **[Stripe Projects](https://docs.stripe.com/projects) build template** — one command scaffolds the backend with a Supabase database and a Vercel project already provisioned.
+Quickstart for building a Stripe App with a real backend: a Stripe App (UI extension) plus a Next.js backend that is published as a **[Stripe Projects](https://docs.stripe.com/projects) build template** — one command scaffolds the backend with Vercel hosting already provisioned, and a short wizard connects your Supabase database.
 
 ```bash
 stripe projects build my-stripe-app-backend --template bensontrent/stripe-app-nextjs-backend
@@ -31,7 +31,7 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
   - [x] User login & authentication from Stripe app to next.js
 - [ ] Creative component examples: Password input, Address suggestion through Google Places API, Unified Container wrapper
 - [x] Login component with Better Auth backend
-- [x] Backend as a Stripe Projects build template (Supabase + Vercel provisioned by the CLI, `npm run deploy`)
+- [x] Backend as a Stripe Projects build template (Vercel provisioned by the CLI, `npm run deploy`; Supabase optional)
 - [x] Stripe Projects support
 - [ ] Complex routing examples
 - [ ] Full page app example
@@ -54,18 +54,19 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 | [`stripe-app/`](stripe-app/) | The Stripe App (UI extension) that renders inside the Stripe Dashboard and calls the backend. Maintained as its own repo and included here as a reference. | Stripe CLI (`stripe apps start`) |
 
 ```
-Stripe Dashboard                         Your infrastructure (provisioned by Stripe Projects)
+Stripe Dashboard                         Your infrastructure
 ┌──────────────────────┐                ┌───────────────────────────────┐
 │  stripe-app          │   HTTPS/API    │  stripe-app-nextjs-backend    │
-│  (UI extension,      │ ─────────────► │  (Next.js on Vercel)          │
-│   React + UI SDK)    │                │   ├─ Better Auth              │
-└──────────────────────┘                │   ├─ Supabase client          │
-        ▲                               │   └─ Stripe webhooks          │
-        │ installs into                 └───────────┬───────────────────┘
-┌──────────────────────┐                            │
+│  (UI extension,      │ ─────────────► │  (Next.js on Vercel —         │
+│   React + UI SDK)    │                │   provisioned by Projects)    │
+└──────────────────────┘                │   ├─ Better Auth              │
+        ▲                               │   ├─ Supabase client          │
+        │ installs into                 │   └─ Stripe webhooks          │
+┌──────────────────────┐                └───────────┬───────────────────┘
 │  Stripe account      │ ── webhooks ──►            ▼
 │  (test mode)         │                ┌───────────────────────────────┐
-└──────────────────────┘                │  Supabase (Postgres)          │
+└──────────────────────┘                │  Supabase (Postgres) —        │
+                                        │  yours, connected by setup    │
                                         └───────────────────────────────┘
 ```
 
@@ -76,10 +77,10 @@ Stripe Dashboard                         Your infrastructure (provisioned by Str
 - **[Stripe CLI](https://docs.stripe.com/stripe-cli)** 1.43+ with two plugins:
   - Windows: `scoop install stripe` · macOS: `brew install stripe/stripe-cli/stripe` · or `npm install -g @stripe/cli`
   - `stripe plugin install apps` — runs and uploads the Stripe App
-  - `stripe plugin install projects` — provisions Supabase + Vercel and syncs credentials
-- Then `stripe login`
-
-No Supabase or Vercel sign-up needed: Stripe Projects creates both accounts for you (free tiers) and bills any upgrades through Stripe.
+  - `stripe plugin install projects` — provisions Vercel (and optionally Supabase) and syncs credentials
+  - Then `stripe login`
+- **[Supabase account](https://supabase.com)** — free tier works; the setup wizard creates the project with you if you don't have one, or can have Stripe Projects provision a fresh one
+- No Vercel sign-up needed: Stripe Projects creates the account and project for you (free tier) and bills any upgrades through Stripe
 
 ## Quick start
 
@@ -88,7 +89,7 @@ No Supabase or Vercel sign-up needed: Stripe Projects creates both accounts for 
 ```bash
 stripe projects build my-stripe-app-backend --template bensontrent/stripe-app-nextjs-backend
 cd my-stripe-app-backend
-npm run setup      # secrets, Stripe test key, database tables
+npm run setup      # connect Supabase, generate secrets, Stripe test key, database tables
 npm run dev        # http://localhost:3006
 ```
 
@@ -107,26 +108,31 @@ cd stripe-apps-community-examples
 npm install                          # installs both projects
 cd stripe-app-nextjs-backend
 stripe projects init                 # creates the Stripe project for this checkout
-stripe projects add supabase/project # free-tier Postgres, credentials → .env
 stripe projects add vercel/project   # hosting, credentials → .env
 cd ..
-npm run setup                        # secrets, Stripe test key, database tables
+npm run setup                        # connect Supabase, secrets, Stripe test key, database tables
 npm run dev                          # backend + Stripe App preview side by side
 ```
 
 `npm run dev` starts the Next.js backend (<http://localhost:3006>) and the Stripe App preview (`stripe apps start`, which opens the Stripe Dashboard). Run them individually with `npm run dev:backend` and `npm run dev:app`.
 
-<details>
-<summary>Prefer manual setup, or already have a Supabase project?</summary>
+### About the database
 
-The Supabase provider always creates a new project, so to reuse one you have:
+`npm run setup` asks where your Postgres lives and offers three choices: a Supabase project you already have (paste the *Session pooler* connection string and API keys, optionally into a dedicated schema so the demo doesn't use up a free-tier project slot), a new free project you create at [database.new](https://database.new), or a brand-new project provisioned by Stripe Projects (`stripe projects add supabase/project`). The Projects connector can't reuse an existing project or pick a schema, which is why it's an option and not the default. Prefer it up front? The template has a second variant that provisions Supabase during the build:
+
+```bash
+stripe projects build my-stripe-app-backend --template bensontrent/stripe-app-nextjs-backend/supabase-vercel
+```
+
+<details>
+<summary>Prefer fully manual setup?</summary>
 
 ```bash
 cd stripe-app-nextjs-backend
 cp .env.example .env.local
 ```
 
-Fill in `DATABASE_URL` (Connect → Session pooler), `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API Keys), then `npm run setup` from the repo root — it generates the remaining secrets and creates the tables. Set `SUPABASE_SCHEMA` to keep the tables in a dedicated schema instead of `public` (then add it to *Exposed schemas* under Settings → API).
+Fill in `DATABASE_URL` (Connect → Session pooler), `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API Keys), generate the secrets, paste your Stripe test key, and create the tables by pasting [setup.sql](stripe-app-nextjs-backend/setup.sql) into the Supabase SQL editor or running `npm run db:setup`. Set `SUPABASE_SCHEMA` to keep the tables in a dedicated schema instead of `public` (then add it to *Exposed schemas* under Settings → API).
 
 </details>
 
@@ -137,7 +143,7 @@ While anything is missing, the backend home page (<http://localhost:3006>) shows
 | Script | What it does |
 | --- | --- |
 | `npm install` | Installs dependencies for both projects |
-| `npm run setup` | Fills in `stripe-app-nextjs-backend/.env.local` (secrets, Stripe test key) and creates the tables — idempotent |
+| `npm run setup` | Connects Supabase, fills in `stripe-app-nextjs-backend/.env.local` (secrets, Stripe test key) and creates the tables — idempotent |
 | `npm run dev` | Runs backend + Stripe App preview together |
 | `npm run dev:backend` | Next.js dev server only |
 | `npm run dev:app` | Stripe App preview only |
@@ -164,17 +170,17 @@ The signed-request auth between the app and the backend (see [stripe-app-nextjs-
 
 ## How the template works
 
-`stripe projects build` reads a manifest, copies [`stripe-app-nextjs-backend/`](stripe-app-nextjs-backend/) at a pinned commit, runs `npm install`, provisions the services in the manifest (`supabase/project`, `vercel/project`) and prints the next steps. The pieces that make the backend template-ready:
+`stripe projects build` reads a manifest, copies [`stripe-app-nextjs-backend/`](stripe-app-nextjs-backend/) at a pinned commit, runs `npm install`, provisions the services in the manifest and prints the next steps. The pieces that make the backend template-ready:
 
-- [`projects-template.yaml`](stripe-app-nextjs-backend/projects-template.yaml) — the manifest (services, tier plans, next steps). The copy submitted to the registry lives in Stripe's repo; this one is the source of truth.
-- [`src/lib/env.ts`](stripe-app-nextjs-backend/src/lib/env.ts) — maps the variable names the Supabase provider writes (`SUPABASE_POOLER_URL`, `SUPABASE_PROJECT_URL`, `SUPABASE_SECRET_KEY`) onto the names the code reads, so the same code works with hand-written `.env.local` files.
-- [`scripts/setup.mjs`](stripe-app-nextjs-backend/scripts/setup.mjs) — non-interactive `npm run setup`: everything Stripe Projects can't provide (random secrets, Stripe test key from `stripe login`, database tables), safe to re-run.
+- [`projects-template.yaml`](stripe-app-nextjs-backend/projects-template.yaml) — the default manifest (Vercel only; Supabase connected by the wizard). [`projects-template.supabase-vercel.yaml`](stripe-app-nextjs-backend/projects-template.supabase-vercel.yaml) is the variant that provisions Supabase too. The copies submitted to the registry live in Stripe's repo; these are the source of truth.
+- [`scripts/setup.mjs`](stripe-app-nextjs-backend/scripts/setup.mjs) — `npm run setup`: everything Stripe Projects doesn't provide (the Supabase connection, random secrets, Stripe test key from `stripe login`, database tables), safe to re-run, non-interactive when there's no terminal.
+- [`src/lib/env.ts`](stripe-app-nextjs-backend/src/lib/env.ts) — maps the variable names the Supabase provider writes (`SUPABASE_POOLER_URL`, `SUPABASE_PROJECT_URL`, `SUPABASE_SECRET_KEY`) onto the names the code reads, so the Projects route works without touching the code.
 - [`scripts/deploy-vercel.mjs`](stripe-app-nextjs-backend/scripts/deploy-vercel.mjs) — `npm run deploy`: syncs env vars to the Vercel project and starts a production deployment with the credentials Projects wrote.
 
 ### Publishing the template to the registry
 
-1. Push, then pin: `git rev-parse HEAD` → the `ref` field in `projects-template.yaml`.
-2. Fork [stripe/projects-template-registry](https://github.com/stripe/projects-template-registry), add the manifest as `stripe_app_backend/supabase-vercel.yaml`, open a PR.
+1. Push, then pin: `git rev-parse HEAD` → the `ref` field in both manifests.
+2. Fork [stripe/projects-template-registry](https://github.com/stripe/projects-template-registry), add them as `stripe_app_backend/vercel.yaml` and `stripe_app_backend/supabase-vercel.yaml`, open a PR.
 3. Test before publishing with `stripe projects build my-app --template-manifest /absolute/path/to/projects-template.yaml`.
 
 Docs: [Create a build template](https://docs.stripe.com/projects/templates).
@@ -187,6 +193,6 @@ The UI extension is maintained in its own repo — the template's "next steps" t
 
 - [Stripe Apps docs](https://docs.stripe.com/stripe-apps)
 - [Stripe UI Extension SDK](https://docs.stripe.com/stripe-apps/ui)
-- [Stripe Projects](https://docs.stripe.com/projects) — the CLI that provisions the backend's services
+- [Stripe Projects](https://docs.stripe.com/projects) — the CLI that provisions the backend's hosting
 - [stripe-app-nextjs-backend/ARCHITECTURE.md](stripe-app-nextjs-backend/ARCHITECTURE.md) — how the backend is put together
 - [AGENTS.md](AGENTS.md) — notes for contributors (and AI agents) picking up this project

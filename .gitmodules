@@ -1,0 +1,3 @@
+[submodule "stripe-app"]
+	path = stripe-app
+	url = https://github.com/bensontrent/stripe-app-community-example.git

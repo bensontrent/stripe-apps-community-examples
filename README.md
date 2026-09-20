@@ -14,8 +14,7 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 
 | Date | Time | Link |
 | --- | --- | --- |
-| Tue, Aug 4 | 2:00 PM – 3:00 PM EDT | [Join](https://www.stripecommunity.com/home/clubs/stripe-app-developers/events/copy-of-stripe-app-developers-community-meetup-hzmch4a90f) |
-| Tue, Aug 18 | 2:00 PM – 3:00 PM EDT | [Join](https://www.stripecommunity.com/public/clubs/stripe-apps-developers/events/copy-of-stripe-app-developers-community-meetup-97s35xa9qg) |
+| Thurs, Oct 1 | 3:00 PM - 4:30 PM EDT | [Join](https://www.stripecommunity.com/public/clubs/stripe-apps-developers/events/stripe-apps-developers-simplify-building-your-tech-stack-with-ai-qs0kjzpwtj) |
 
 ## Roadmap
 

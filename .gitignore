@@ -6,9 +6,6 @@ node_modules/
 out/
 
 # Env files (keep the examples)
-.env
-.env.*
-!.env.example
 
 # Tooling
 .claude/
@@ -32,3 +29,11 @@ build/
 .DS_Store
 Thumbs.db
 *.log
+
+.projects/cache
+.projects/vault
+.projects/state.test.json
+.projects/state.local.test.json
+.env
+.env.*
+!.env.example

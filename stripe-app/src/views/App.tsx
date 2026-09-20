@@ -5,7 +5,7 @@
 // ============================================================================
 //
 // This drawer view demonstrates the two client-side halves of the auth
-// framework documented in nextjs-backend/AUTHENTICATION.md:
+// framework documented in stripe-app-nextjs-backend/AUTHENTICATION.md:
 //
 //   1. Signed requests — every fetch in src/api/backend.ts carries a
 //      `stripe-signature` header from fetchStripeSignature(). The backend
@@ -22,7 +22,7 @@
 //      Better Auth account on the backend via a browser-tab handshake
 //      (see src/components/Login.tsx for the full story).
 //
-// Run the backend first: `npm run dev` in nextjs-backend (localhost:3006).
+// Run the backend first: `npm run dev` in stripe-app-nextjs-backend (localhost:3006).
 // Local previews via `stripe apps start` may fetch localhost; uploaded
 // apps can only reach the URLs listed in stripe-app.json's connect-src.
 // ============================================================================
@@ -114,7 +114,7 @@ const App = (context: ExtensionContextValue) => {
         <Banner
           type="default"
           title="Local demo"
-          description="Start the backend first: npm run dev in nextjs-backend (localhost:3006)."
+          description="Start the backend first: npm run dev in stripe-app-nextjs-backend (localhost:3006)."
         />
 
         {/* ------------------------------------------------------------- */}

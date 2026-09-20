@@ -1,13 +1,9 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import type { ReactNode } from 'react';
+import { envSource, isConfigured } from '@/lib/env';
 
-// First-run setup checklist shown on the home page. It only renders while the
-// run-once scaffolding folder exists, and never in production builds — delete
-// nextjs-backend/delete_me_after_setup/ and this component renders nothing
-// (at which point this file can be deleted too).
-
-const SETUP_DIR = 'delete_me_after_setup';
+// First-run setup checklist shown on the home page of the dev server. It
+// never renders in production builds, and disappears on its own once every
+// item is green. Each item explains how to fix itself.
 
 type Status = 'done' | 'todo' | 'optional';
 
@@ -16,14 +12,6 @@ interface Item {
     label: string;
     detail?: string;
     fix: ReactNode;
-}
-
-// A value counts as configured when it isn't blank or one of the placeholder
-// shapes used by .env.example / the setup wizard. Mirrored in
-// delete_me_after_setup/setup.mjs.
-function configured(value: string | undefined): value is string {
-    if (!value) return false;
-    return !/REPLACE_ME|your-|\.\.\.$|\[YOUR-PASSWORD\]|localhost:5432\/dbname/.test(value);
 }
 
 async function probeDatabase(schema: string) {
@@ -79,6 +67,12 @@ function Code({ children }: { children: ReactNode }) {
     );
 }
 
+// " (from SUPABASE_POOLER_URL)" when Stripe Projects provided the value.
+function from(name: Parameters<typeof envSource>[0]): string {
+    const source = envSource(name);
+    return source && source !== name ? ` (from ${source})` : '';
+}
+
 const ICONS: Record<Status, ReactNode> = {
     done: <span className="w-4 shrink-0 text-green-600 dark:text-green-400">✓</span>,
     todo: <span className="w-4 shrink-0 text-red-500 dark:text-red-400">✗</span>,
@@ -87,14 +81,13 @@ const ICONS: Record<Status, ReactNode> = {
 
 export default async function SetupChecklist() {
     if (process.env.NODE_ENV === 'production') return null;
-    if (!fs.existsSync(path.join(process.cwd(), SETUP_DIR))) return null;
 
     const env = process.env;
     const schema = env.SUPABASE_SCHEMA || 'public';
-    const hasEnvFile = fs.existsSync(path.join(process.cwd(), '.env.local'));
-    const dbConfigured = configured(env.DATABASE_URL);
+    const dbConfigured = isConfigured(env.DATABASE_URL);
+    const viaProjects = Boolean(envSource('DATABASE_URL') && envSource('DATABASE_URL') !== 'DATABASE_URL');
     const supabaseKeysConfigured =
-        configured(env.NEXT_PUBLIC_SUPABASE_URL) && configured(env.SUPABASE_SERVICE_ROLE_KEY);
+        isConfigured(env.NEXT_PUBLIC_SUPABASE_URL) && isConfigured(env.SUPABASE_SERVICE_ROLE_KEY);
     const db = dbConfigured
         ? await probeDatabase(schema)
         : { connected: false, hasTables: false, error: undefined };
@@ -107,41 +100,51 @@ export default async function SetupChecklist() {
 
     const items: Item[] = [
         {
-            status: hasEnvFile ? 'done' : 'todo',
-            label: '.env.local exists',
-            fix: (
-                <>
-                    Run <Code>npm run setup</Code> from the repo root — the wizard writes the file,
-                    generates every secret and walks you through the rest of this list.
-                </>
-            ),
-        },
-        {
             status: dbConfigured && db.connected ? 'done' : 'todo',
             label: dbConfigured
-                ? 'Database reachable'
+                ? `Database reachable${from('DATABASE_URL')}`
                 : 'Database connection (DATABASE_URL)',
             detail: db.error,
             fix: (
                 <>
-                    Create a free Supabase project at{' '}
+                    Run <Code>npm run setup</Code> — it asks for your Supabase project&apos;s connection
+                    string (click <em>Connect</em> in the project toolbar and copy the{' '}
+                    <em>Session pooler</em> string; replace <Code>[YOUR-PASSWORD]</Code>), or can create
+                    a free project at{' '}
                     <a className="underline" href="https://database.new" target="_blank" rel="noreferrer">
-                        Supabase
-                    </a>
-                    , click <em>Connect</em> in its toolbar, copy the <em>Session pooler</em>{' '}
-                    connection string into <Code>DATABASE_URL</Code> in <Code>.env.local</Code>{' '}
-                    (replace <Code>[YOUR-PASSWORD]</Code>), then restart the dev server.
+                        database.new
+                    </a>{' '}
+                    with you. Or set <Code>DATABASE_URL</Code> in <Code>.env.local</Code> yourself.
+                    Alternative: <Code>stripe projects add supabase/project</Code> provisions a brand-new
+                    project through Stripe Projects and writes <Code>SUPABASE_POOLER_URL</Code> to{' '}
+                    <Code>.env</Code>. Then restart the dev server.
                 </>
             ),
         },
         {
             status: supabaseKeysConfigured ? 'done' : 'todo',
-            label: 'Supabase API keys (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)',
-            fix: (
+            label: supabaseKeysConfigured
+                ? `Supabase API URL${from('NEXT_PUBLIC_SUPABASE_URL')} and secret key${from('SUPABASE_SERVICE_ROLE_KEY')}`
+                : 'Supabase API URL and secret key (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)',
+            fix: viaProjects ? (
                 <>
-                    In the Supabase dashboard open <em>Project Settings → API Keys</em> and copy the{' '}
-                    project URL and the <Code>service_role</Code> secret key into{' '}
-                    <Code>.env.local</Code>. The backend uses them for all data access.
+                    Stripe Projects wrote <Code>SUPABASE_PROJECT_URL</Code> to <Code>.env</Code>, but the{' '}
+                    <em>secret key</em> (<Code>sb_secret_…</Code>, formerly <Code>service_role</Code>)
+                    may not be included. Open the project (<Code>stripe projects open supabase</Code>{' '}
+                    → <em>Project Settings → API Keys</em>), copy it, and either put it in{' '}
+                    <Code>.env.local</Code> as <Code>SUPABASE_SECRET_KEY</Code> or store it for the
+                    whole team with{' '}
+                    <Code>
+                        stripe projects variables set supabase-secret-key --env-key SUPABASE_SECRET_KEY
+                    </Code>
+                    .
+                </>
+            ) : (
+                <>
+                    In the Supabase dashboard open <em>Project Settings → API Keys</em> and copy the
+                    project URL and the secret (<Code>service_role</Code>) key into{' '}
+                    <Code>.env.local</Code> — <Code>npm run setup</Code> asks for both. The backend
+                    uses them for all data access.
                 </>
             ),
         },
@@ -153,12 +156,11 @@ export default async function SetupChecklist() {
                     : `Database tables created in schema “${schema}”`,
             fix: (
                 <>
-                    Run <Code>npm run db:setup</Code> from the repo root
+                    Run <Code>npm run setup</Code> (or <Code>npm run db:setup</Code>)
                     {schema === 'public' ? (
                         <>
                             {' '}
-                            (or paste <Code>nextjs-backend/setup.sql</Code> into the Supabase SQL
-                            editor)
+                            — or paste <Code>setup.sql</Code> into the Supabase SQL editor
                         </>
                     ) : (
                         <>
@@ -192,7 +194,7 @@ export default async function SetupChecklist() {
             : []),
         {
             status:
-                configured(env.BETTER_AUTH_SECRET) && env.BETTER_AUTH_SECRET.length >= 32
+                isConfigured(env.BETTER_AUTH_SECRET) && env.BETTER_AUTH_SECRET.length >= 32
                     ? 'done'
                     : 'todo',
             label: 'Auth secret (BETTER_AUTH_SECRET)',
@@ -205,7 +207,7 @@ export default async function SetupChecklist() {
         },
         {
             status: (['URL_TOKEN_SECRET', 'BEARER_TOKEN_KEYS', 'DEV_API_KEY', 'CRON_SECRET'] as const).every(
-                (key) => configured(env[key]),
+                (key) => isConfigured(env[key]),
             )
                 ? 'done'
                 : 'todo',
@@ -219,13 +221,14 @@ export default async function SetupChecklist() {
         },
         {
             status:
-                configured(env.STRIPE_SECRET_KEY_TEST) && /^(sk|rk)_test_/.test(env.STRIPE_SECRET_KEY_TEST)
+                isConfigured(env.STRIPE_SECRET_KEY_TEST) && /^(sk|rk)_test_/.test(env.STRIPE_SECRET_KEY_TEST)
                     ? 'done'
                     : 'todo',
             label: 'Stripe test key (STRIPE_SECRET_KEY_TEST)',
             fix: (
                 <>
-                    Copy the test-mode secret key from{' '}
+                    <Code>npm run setup</Code> copies it from your <Code>stripe login</Code> session. Or
+                    paste the test-mode secret key from{' '}
                     <a
                         className="underline"
                         href="https://dashboard.stripe.com/test/apikeys"
@@ -239,7 +242,7 @@ export default async function SetupChecklist() {
             ),
         },
         {
-            status: configured(env.STRIPE_WEBHOOK_SECRET_TEST_CONNECTED) ? 'done' : 'todo',
+            status: isConfigured(env.STRIPE_WEBHOOK_SECRET_TEST_CONNECTED) ? 'done' : 'todo',
             label: 'Webhook secret (STRIPE_WEBHOOK_SECRET_TEST_CONNECTED)',
             fix: (
                 <>
@@ -251,23 +254,25 @@ export default async function SetupChecklist() {
         },
         {
             status:
-                configured(env.STRIPE_APP_SIGNING_SECRET) && /^absec_/.test(env.STRIPE_APP_SIGNING_SECRET)
+                isConfigured(env.STRIPE_APP_SIGNING_SECRET) && /^absec_/.test(env.STRIPE_APP_SIGNING_SECRET)
                     ? 'done'
                     : 'optional',
             label: 'Stripe App signing secret (STRIPE_APP_SIGNING_SECRET)',
             fix: (
                 <>
-                    This secret only exists after your first <Code>npm run stripe:upload</Code>{' '}
+                    This secret only exists after your first <Code>stripe apps upload</Code>{' '}
                     (uploading is not publishing — the app stays private to your account). Copy the
-                    “Signing secret” from your app’s page in the Stripe Developers Dashboard. Until
-                    then, signed requests from the app’s UI extension will fail.
+                    “Signing secret” from your app’s page in the Stripe Developers Dashboard into{' '}
+                    <Code>.env.local</Code>. Until then, signed requests from the app’s UI extension
+                    will fail.
                 </>
             ),
         },
     ];
 
     const done = items.filter((item) => item.status === 'done').length;
-    const allDone = items.every((item) => item.status !== 'todo');
+    if (done === items.length) return null;
+    const requiredDone = items.every((item) => item.status !== 'todo');
 
     return (
         <section className="w-full rounded-2xl border border-amber-300/60 bg-amber-50 p-6 text-left text-sm dark:border-amber-400/20 dark:bg-amber-950/20">
@@ -280,12 +285,13 @@ export default async function SetupChecklist() {
                 </span>
             </div>
             <p className="mb-4 text-zinc-600 dark:text-zinc-400">
-                {allDone ? (
-                    'Everything is configured — you can delete the setup folder (see below).'
+                {requiredDone ? (
+                    'Everything required is configured — only optional items remain.'
                 ) : (
                     <>
-                        Fastest path: run <Code>npm run setup</Code> from the repo root. Or expand any
-                        item for instructions. The page re-checks on every reload.
+                        Fastest path: run <Code>npm run setup</Code> — it walks you through connecting
+                        Supabase and fills in the rest. Or expand any item for instructions. The page
+                        re-checks on every reload.
                     </>
                 )}
             </p>
@@ -320,12 +326,9 @@ export default async function SetupChecklist() {
                 ))}
             </ul>
             <p className="mt-4 border-t border-amber-300/40 pt-3 text-xs text-zinc-500 dark:border-amber-400/10 dark:text-zinc-400">
-                This panel only appears on the dev server while{' '}
-                <Code>nextjs-backend/delete_me_after_setup/</Code> exists. When everything above is
-                green, delete that folder — this message, the install banner and the setup wizard
-                all disappear. (Optionally delete <Code>src/components/SetupChecklist.tsx</Code>{' '}
-                too.) Edits to <Code>.env.local</Code> are picked up automatically; reload this page
-                to re-check.
+                This panel only appears on the dev server and goes away by itself once every item is
+                green. Edits to <Code>.env</Code> and <Code>.env.local</Code> are picked up
+                automatically; reload this page to re-check.
             </p>
         </section>
     );

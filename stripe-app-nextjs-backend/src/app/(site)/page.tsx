@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import SetupChecklist from '@/components/SetupChecklist';
 
-// Home page. The setup checklist only renders while the run-once scaffolding
-// folder (delete_me_after_setup/) exists on a dev server — once the project
-// is configured, visitors just see the hero and feature overview.
+// Home page. The setup checklist only renders on the dev server while
+// something is still missing — once the project is configured, visitors just
+// see the hero and feature overview.
 export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-12 px-6 py-12 sm:py-20">

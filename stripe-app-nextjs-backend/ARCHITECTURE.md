@@ -11,7 +11,7 @@ This backend serves dual purposes:
 
 ### Core Framework
 
-- **Next.js 15**: React framework with App Router
+- **Next.js 16**: React framework with App Router
 - **TypeScript**: Type-safe development
 - **Tailwind CSS**: Utility-first styling
 
@@ -310,12 +310,17 @@ socialProviders: {
 ### Production Setup
 
 ```
-Vercel (Next.js hosting)
-   |
-   +-> Supabase (Database)
+Vercel (Next.js hosting)        provisioned by `stripe projects add vercel/project`
+   |                            deployed with `npm run deploy`
+   +-> Supabase (Database)      your own project, connected by `npm run setup`
    +-> Stripe (Payments)
    +-> Better Auth (Sessions)
 ```
+
+Hosting comes from [Stripe Projects](https://docs.stripe.com/projects), which writes the
+Vercel credentials to `.env`. The database is deliberately not provisioned by
+Projects: its Supabase connector cannot target an existing project or a
+dedicated schema, so `npm run setup` connects the Supabase project you choose.
 
 ### Environment Separation
 

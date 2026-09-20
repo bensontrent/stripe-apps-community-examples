@@ -5,8 +5,8 @@
 // ============================================================================
 //
 // Every request carries a `stripe-signature` header from
-// fetchStripeSignature(). The backend proxy (nextjs-backend/src/proxy.ts)
-// verifies that HMAC against the app's signing secret (STRIPE_APP_SECRET),
+// fetchStripeSignature(). The backend proxy (stripe-app-nextjs-backend/src/proxy.ts)
+// verifies that HMAC against the app's signing secret (STRIPE_APP_SIGNING_SECRET),
 // which proves the request really came from this app running in the Stripe
 // Dashboard — no login, cookies, or API keys needed.
 //
@@ -51,7 +51,7 @@ function signatureHint(detail: string): string {
       'Stripe can only sign requests for apps that have been uploaded. ' +
       'Run `stripe apps upload` once from stripe-app/ (pick your own app id ' +
       'in stripe-app.json first — see the root README), copy the signing ' +
-      'secret into nextjs-backend/.env.local as STRIPE_APP_SECRET, then ' +
+      'secret into stripe-app-nextjs-backend/.env.local as STRIPE_APP_SIGNING_SECRET, then ' +
       'restart `stripe apps start`. Uploading does NOT publish the app.'
     );
   }
@@ -67,8 +67,8 @@ function statusHint(status: number): string {
     case 401:
     case 403:
       return (
-        'The backend rejected the signature. Usually STRIPE_APP_SECRET in ' +
-        'nextjs-backend/.env.local is missing or does not match this app — ' +
+        'The backend rejected the signature. Usually STRIPE_APP_SIGNING_SECRET in ' +
+        'stripe-app-nextjs-backend/.env.local is missing or does not match this app — ' +
         'copy the signing secret from your app’s settings page in the ' +
         'Stripe Developers Dashboard (it exists after `stripe apps upload`).'
       );
@@ -131,7 +131,7 @@ async function signedFetch<T>(
     throw new BackendConnectionError(
       `Couldn't reach the backend at ${BACKEND_BASE}: ${detail}`,
       'Is the backend running? Start it with `npm run dev` in ' +
-      'nextjs-backend. For a deployed backend, its URL must also be ' +
+      'stripe-app-nextjs-backend. For a deployed backend, its URL must also be ' +
       'listed in connect-src in stripe-app.json.',
     );
   }

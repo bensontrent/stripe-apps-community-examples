@@ -1,5 +1,8 @@
 import { betterAuth } from 'better-auth';
 import { Pool } from 'pg';
+// Maps SUPABASE_POOLER_URL / SUPABASE_DB_URL onto DATABASE_URL when Supabase was
+// provisioned through Stripe Projects. See src/lib/env.ts.
+import './env';
 import { dbSchema } from './supabase';
 
 // Better Auth manages its own tables (users, sessions, auth_accounts,

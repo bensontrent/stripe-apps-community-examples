@@ -2,17 +2,17 @@
   "name": "stripe-apps-community-examples",
   "version": "0.1.0",
   "private": true,
-  "description": "Stripe Apps Community meetup examples: a Stripe App UI extension + a Next.js backend (Supabase, Better Auth)",
+  "description": "Stripe Apps Community meetup examples: a Stripe App UI extension + a Next.js backend (Supabase, Better Auth) publishable as a Stripe Projects build template",
   "scripts": {
-    "postinstall": "npm install --prefix stripe-app && npm install --prefix nextjs-backend && node -e \"try{require('./nextjs-backend/delete_me_after_setup/banner.js')}catch(e){}\"",
-    "install:all": "npm install --prefix stripe-app && npm install --prefix nextjs-backend",
-    "setup": "node nextjs-backend/delete_me_after_setup/setup.mjs",
-    "predev": "node -e \"try{require('./nextjs-backend/delete_me_after_setup/banner.js')}catch(e){}\"",
+    "postinstall": "npm install --prefix stripe-app && npm install --prefix stripe-app-nextjs-backend",
+    "install:all": "npm install --prefix stripe-app && npm install --prefix stripe-app-nextjs-backend",
+    "setup": "npm run setup --prefix stripe-app-nextjs-backend",
     "dev": "concurrently -n backend,stripe-app -c blue,green \"npm run dev:backend\" \"npm run dev:app\"",
-    "dev:backend": "npm run dev --prefix nextjs-backend",
+    "dev:backend": "npm run dev --prefix stripe-app-nextjs-backend",
     "dev:app": "npm run start --prefix stripe-app",
-    "build:backend": "npm run build --prefix nextjs-backend",
-    "db:setup": "npm run db:setup --prefix nextjs-backend",
+    "build:backend": "npm run build --prefix stripe-app-nextjs-backend",
+    "db:setup": "npm run db:setup --prefix stripe-app-nextjs-backend",
+    "deploy:backend": "npm run deploy --prefix stripe-app-nextjs-backend",
     "stripe:login": "npm run login --prefix stripe-app",
     "stripe:upload": "npm run upload --prefix stripe-app",
     "test": "npm test --prefix stripe-app"
@@ -21,6 +21,6 @@
     "concurrently": "^9.1.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.9"
   }
 }

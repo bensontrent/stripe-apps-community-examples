@@ -1,4 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+// Maps Stripe Projects variable names (SUPABASE_PROJECT_URL, …) onto the classic
+// names read below, for people who provision Supabase through Projects.
+import './env';
 
 // Which Postgres schema the app's tables live in. Defaults to `public`; set
 // SUPABASE_SCHEMA in .env.local to install everything into a dedicated schema

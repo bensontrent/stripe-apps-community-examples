@@ -19,7 +19,7 @@ variant_description: Vercel • Supabase (new project) • Better Auth
 install_command: npm install
 
 repo: https://github.com/bensontrent/stripe-apps-community-examples/tree/main/stripe-app-nextjs-backend
-ref: ""
+ref: 1ce2e22bf9040ede3a0372a4a33b237a75684906
 
 metadata:
   name: Stripe App Backend (Next.js)

@@ -47,7 +47,7 @@ install_command: npm install
 # Copy the files from the template directory of the community-examples repo.
 repo: https://github.com/bensontrent/stripe-apps-community-examples/tree/main/stripe-app-nextjs-backend
 # The exact commit users receive (see the release steps above).
-ref: ""
+ref: 1ce2e22bf9040ede3a0372a4a33b237a75684906
 
 metadata:
   name: Stripe App Backend (Next.js)

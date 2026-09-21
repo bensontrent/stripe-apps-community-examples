@@ -1,7 +1,7 @@
 ---
 title: Writing docs
 description: Author documentation for your app with Markdoc — frontmatter, tags, and build-time validation.
-order: 4
+order: 5
 ---
 
 These pages are plain `.md` files in `src/content/docs`, rendered with

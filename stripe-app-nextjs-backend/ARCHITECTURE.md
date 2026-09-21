@@ -71,15 +71,20 @@ Database                   queries user data
 
 **User management (Better Auth):**
 
-- `users`: Core user identity, plus app-owned columns: `settings` jsonb (preferences) and the user's Customer ids in the publisher's billing account (`stripe_customer_id_live` / `stripe_customer_id_test`). Better Auth ignores columns it doesn't know about
+- `users`: Core user identity, plus app-owned columns: the user's Customer ids in the publisher's billing account (`stripe_customer_id_live` / `stripe_customer_id_test`). Better Auth ignores columns it doesn't know about
 - `sessions`: Active authentication sessions
 - `auth_accounts`: Sign-in methods (email/password credential or OAuth provider). This is Better Auth's "account" model - it is unrelated to Stripe accounts
 - `verifications`: Email verification / password reset values
 
 **Merchant side (connected Stripe accounts the app is installed into):**
 
-- `stripe_accounts`: One row per Stripe account — the `acct_...` id is the primary key (Stripe ids are unique and immutable, so no surrogate uuid). Carries the account-wide `settings` jsonb (e.g. the company office address) and install state as two nullable columns: `live_installation_id` / `test_installation_id`, where NULL means "not installed in that mode". A general sandbox has its own `acct_...` id, so it is simply another row
-- `memberships`: User <-> Stripe account many-to-many (users can belong to multiple Stripe accounts, and Stripe accounts have multiple users). Data about the relationship lives here: the user's `role` in that account (owner/admin/member; the first registrant becomes owner) and their per-account `settings` jsonb (e.g. which address is that user's local company address). Composite primary key (stripe_account_id, user_id)
+- `stripe_accounts`: One row per Stripe account — the `acct_...` id is the primary key (Stripe ids are unique and immutable, so no surrogate uuid). Carries install state as two nullable columns: `live_installation_id` / `test_installation_id`, where NULL means "not installed in that mode". A general sandbox has its own `acct_...` id, so it is simply another row
+- `memberships`: User <-> Stripe account many-to-many (users can belong to multiple Stripe accounts, and Stripe accounts have multiple users). Data about the relationship lives here: the user's `role` in that account (owner/admin/member; the first registrant becomes owner). Composite primary key (stripe_account_id, user_id)
+
+**App settings (the `/api/stripe-app/settings` route; docs at `/docs/app-settings`):**
+
+- `account_settings`: Settings shared by everyone who uses the app in a Stripe account (e.g. the company name), one jsonb row per `(stripe_account_id, livemode)`
+- `user_settings`: One Dashboard user's own preferences (e.g. their label printer), one jsonb row per `(stripe_account_id, stripe_user_id, livemode)`. Both are keyed by the ids the Stripe App signature vouches for, so settings need no app login. Which keys go in which table is decided once, in `src/types/settings.ts`; the route validates every write against it, and patches are merged inside Postgres (`settings_merge` in `setup.sql`) so overlapping saves can't overwrite each other
 - `stripe_app_sessions`: Which app user is logged in inside the Stripe Dashboard — one row per dashboard user (`usr_...`) per Stripe account, written by the Stripe App login handshake (`/api/stripe-app/verify`) and deleted on app logout. The short-lived handshake states themselves ride on `verifications` (identifier `stripe-app-login:<state>`), so they need no table of their own
 
 **Publisher side (monetization):**
@@ -89,19 +94,20 @@ Database                   queries user data
 **Relationships:**
 
 ```
-users (n) <-> (n) stripe_accounts    via memberships (role + settings on the edge)
+users (n) <-> (n) stripe_accounts    via memberships (role on the edge)
+stripe_accounts (1) -> (n) account_settings (one row per mode)
+stripe_accounts (1) -> (n) user_settings    (one row per Dashboard user per mode)
 users (1) -> (n) stripe_app_sessions (dashboard logins)
 users (1) -> (n) subscriptions
 users (1) -> (n) sessions
 users (1) -> (n) auth_accounts
 ```
 
-**Where `livemode` lives (and doesn't):** it is kept only where Stripe itself
+**Where `livemode` lives (and doesn't):** it is kept where Stripe itself
 splits data by mode — billing customer ids (two columns on `users`),
-installation ids (two columns on `stripe_accounts`), and `subscriptions.livemode`.
-App-owned data (roles, settings) is mode-independent; if an account ever needs
-mode-split settings, nest them inside the jsonb (`{"live": ..., "test": ...}`)
-rather than forking tables per mode.
+installation ids (two columns on `stripe_accounts`), `subscriptions.livemode` —
+and on the two settings tables, so what a user configures in test mode never
+applies in live mode. Roles and login state are mode-independent.
 
 ### 3. API Route Structure
 

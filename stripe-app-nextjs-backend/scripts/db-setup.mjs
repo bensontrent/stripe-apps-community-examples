@@ -1,7 +1,9 @@
 // scripts/db-setup.mjs — creates every table the backend expects by running
 // setup.sql against the database.
 //
-//   npm run db:setup              apply setup.sql (no-op if the tables exist)
+//   npm run db:setup              apply setup.sql (safe to re-run: creates
+//                                 what's missing, upgrades what's old, never
+//                                 touches data)
 //   npm run db:setup -- --print   print the (schema-qualified) SQL instead —
 //                                 paste it into the Supabase SQL editor
 //
@@ -57,8 +59,11 @@ export function buildSql(schema) {
 }
 
 /**
- * Create the tables unless they already exist.
- * Resolves to 'created' or 'exists'; throws on connection/SQL errors.
+ * Apply setup.sql. Every statement in it is idempotent, so this is safe to
+ * run on an empty database (creates everything) and on an existing one
+ * (adds what's new, runs the "Upgrades" section, leaves data alone).
+ * Resolves to 'created' when the tables didn't exist before, 'updated'
+ * otherwise; throws on connection/SQL errors.
  */
 export async function ensureTables({ connectionString, schema }) {
   const client = new pg.Client({ connectionString, connectionTimeoutMillis: 10_000 });
@@ -68,11 +73,11 @@ export async function ensureTables({ connectionString, schema }) {
       `select 1 from information_schema.tables where table_schema = $1 and table_name = 'users'`,
       [schema],
     );
-    if (rows.length > 0) return 'exists';
+    const existed = rows.length > 0;
     // One multi-statement query runs in a single implicit transaction:
-    // either every table is created, or none are.
+    // either every statement applies, or none do.
     await client.query(buildSql(schema));
-    return 'created';
+    return existed ? 'updated' : 'created';
   } finally {
     await client.end();
   }
@@ -109,7 +114,7 @@ async function main() {
     console.log(
       result === 'created'
         ? `setup.sql applied — all tables created in schema "${schema}"${from}.`
-        : `Tables already exist in schema "${schema}"${from} — nothing changed.`,
+        : `setup.sql applied to the existing tables in schema "${schema}"${from} — anything new was added, data untouched.`,
     );
     if (schema !== 'public') {
       console.log(

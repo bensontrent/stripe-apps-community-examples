@@ -8,6 +8,12 @@ Quickstart for building a Stripe App with a real backend: a Stripe App (UI exten
 stripe projects build my-stripe-app-backend --template bensontrent/stripe-app-nextjs-backend
 ```
 
+## Who this is for
+
+**The assumption throughout this repo: you are building a Stripe App for the [Stripe Apps Marketplace](https://marketplace.stripe.com), to be installed by thousands of Stripe accounts you don't control.** Every design choice — signed requests from the app to the backend, per-account authentication, the database keyed by Stripe account ID, connected webhooks, per-account settings and billing — treats each installing Stripe account as a separate tenant of your backend. Think of it as a roadmap for going from "it works in my Dashboard" to a reviewed, listed, multi-tenant Marketplace app.
+
+You can also use this example as a **private app for a single company** (one Stripe account, distributed privately). Everything still works; you'll just find that some of the machinery — tenant isolation, install/uninstall handling, paywalls, trials — is more than a one-account app needs and can be trimmed.
+
 > **🚧 Actively in development.** This repo is growing over time as new examples are added. See the roadmap below for what's done and what's coming.
 
 ## 📅 Community meetup
@@ -32,15 +38,15 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 - [x] Login component with Better Auth backend
 - [x] Backend as a Stripe Projects build template (Vercel provisioned by the CLI, `npm run deploy`; Supabase optional)
 - [x] Stripe Projects support
-- [ ] Complex routing examples
-- [ ] Full page app example
+- [x] Complex routing examples
+- [x] Full page app example
 - [ ] Connected webhooks
 - [ ] App user email notifications
 - [ ] App paywall
 - [ ] App monetization and user billing dashboard
 - [ ] App trial strategies
 - [X] Demo documentation files: how to document your app to the public with markdoc.dev
-- [ ] App settings (user, account-wide and test mode settings)
+- [x] App settings (user, account-wide and test mode settings) — [docs](stripe-app-nextjs-backend/src/content/docs/app-settings.md), demo at `/examples/app-settings` in the app
 - [ ] Security best practices
 - [ ] Hosting recommendation
 - [ ] And much more
@@ -50,7 +56,7 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 | Folder | What it is | Runs on |
 | --- | --- | --- |
 | [`stripe-app-nextjs-backend/`](stripe-app-nextjs-backend/) | The Next.js backend — auth (Better Auth), Supabase Postgres, Stripe webhooks, signed-request routes. **This is the Stripe Projects template** ([manifest](stripe-app-nextjs-backend/projects-template.yaml)). | Local dev / Vercel |
-| [`stripe-app/`](stripe-app/) | The Stripe App (UI extension) that renders inside the Stripe Dashboard and calls the backend. Maintained as its own repo and included here as a reference. | Stripe CLI (`stripe apps start`) |
+| [`stripe-app/`](stripe-app/) | The Stripe App (UI extension): a full-page Dashboard view routed with `@stripe/ui-extension-sdk/navigation` (tabs, list-to-detail, search params, redirects) plus a drawer that links into it. The backend auth demo lives at `/examples/authentication`. Maintained as its own repo and included here as a reference. | Stripe CLI (`stripe apps start`) |
 
 ```
 Stripe Dashboard                         Your infrastructure
@@ -62,8 +68,8 @@ Stripe Dashboard                         Your infrastructure
         ▲                               │   ├─ Supabase client          │
         │ installs into                 │   └─ Stripe webhooks          │
 ┌──────────────────────┐                └───────────┬───────────────────┘
-│  Stripe account      │ ── webhooks ──►            ▼
-│  (test mode)         │                ┌───────────────────────────────┐
+│  Stripe accounts     │ ── webhooks ──►            ▼
+│  (one per install)   │                ┌───────────────────────────────┐
 └──────────────────────┘                │  Supabase (Postgres) —        │
                                         │  yours, connected by setup    │
                                         └───────────────────────────────┘

@@ -380,13 +380,13 @@ ${dim(`Adds missing values to ${path.relative(process.cwd(), envLocalPath) || en
     process.exitCode = 1;
   } else if (dryRun) {
     warn(`Would create the tables in schema "${schema}" (dry run).`);
-  } else if (!interactive || (await yesNo('Create the database tables now? (applies setup.sql, no-op if they exist)'))) {
+  } else if (!interactive || (await yesNo('Create or update the database tables now? (applies setup.sql; safe to re-run, keeps data)'))) {
     try {
       const state = await ensureTables({ connectionString: process.env.DATABASE_URL, schema });
       ok(
         state === 'created'
           ? `Database tables created in schema "${schema}" (setup.sql).`
-          : `Database tables already exist in schema "${schema}".`,
+          : `Database tables in schema "${schema}" brought up to date (setup.sql).`,
       );
     } catch (err) {
       console.log(

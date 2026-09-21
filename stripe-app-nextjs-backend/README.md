@@ -169,16 +169,21 @@ Copy the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET_TEST_CONNECTED` in `.en
 
 Better Auth (sign-in):
 
-- **users**: User accounts with email authentication, plus app-owned columns: `settings` jsonb and the user's Customer ids in the publisher's Stripe billing account (`stripe_customer_id_live` / `stripe_customer_id_test`)
+- **users**: User accounts with email authentication, plus app-owned columns: the user's Customer ids in the publisher's Stripe billing account (`stripe_customer_id_live` / `stripe_customer_id_test`)
 - **sessions**: Active user sessions
 - **auth_accounts**: Sign-in methods (credential/OAuth) — Better Auth's "account" model, unrelated to Stripe accounts
 - **verifications**: Email verification / password reset values (also carries the short-lived Stripe App login handshake states)
 
 Merchant side (connected Stripe accounts):
 
-- **stripe_accounts**: One row per `acct_...` id (the Stripe id is the primary key), with account-wide `settings` jsonb and install state as two nullable columns (`live_installation_id` / `test_installation_id` — NULL means not installed in that mode)
-- **memberships**: User ↔ Stripe account many-to-many, carrying the user's `role` in that account and their per-account `settings` jsonb
+- **stripe_accounts**: One row per `acct_...` id (the Stripe id is the primary key), with install state as two nullable columns (`live_installation_id` / `test_installation_id` — NULL means not installed in that mode)
+- **memberships**: User ↔ Stripe account many-to-many, carrying the user's `role` in that account
 - **stripe_app_sessions**: Which app user is logged in inside the Stripe Dashboard, per dashboard user and Stripe account
+
+App settings (see [docs/app-settings](src/content/docs/app-settings.md)):
+
+- **account_settings**: Settings shared by everyone in a Stripe account, one jsonb row per `(stripe_account_id, livemode)`
+- **user_settings**: One Dashboard user's own settings, one jsonb row per `(stripe_account_id, stripe_user_id, livemode)` — keyed by the signed Stripe ids (no app login needed); test and live mode are different rows
 
 Publisher side (monetization):
 
@@ -203,6 +208,7 @@ Publisher side (monetization):
 - `GET /api/stripe-app/me` - Echo the verified Stripe identity
 - `POST /api/stripe-app/token` - Mint a short-lived JWT-in-URL token
 - `POST /api/stripe-app/session` · `GET /api/stripe-app/verify` · `GET /api/stripe-app/userinfo` · `DELETE /api/stripe-app/session` - The Dashboard login handshake
+- `GET /api/stripe-app/settings` · `PATCH /api/stripe-app/settings` - User-scoped, account-wide and test-mode app settings (see [docs/app-settings](src/content/docs/app-settings.md))
 
 ### Public Routes (route-level auth)
 
@@ -307,13 +313,11 @@ const response = await fetch('/api/protected/stripe-app', {
     stripeAccountId: 'acct_xxx',
     installationId: 'install_xxx',
     livemode: false,
-    accountSettings: { /* shared by every member of the account */ },
-    userSettings: { /* just for the current user in this account */ },
   }),
 });
 ```
 
-This upserts the `stripe_accounts` row (setting the mode's installation column) and the caller's `memberships` row — the first person to register an account becomes its `owner`.
+This upserts the `stripe_accounts` row (setting the mode's installation column) and the caller's `memberships` row — the first person to register an account becomes its `owner`. Account-wide and per-user settings are separate: see [docs/app-settings](src/content/docs/app-settings.md).
 
 ### Webhook Handling
 
@@ -326,14 +330,14 @@ The webhook handler automatically:
 ## Database Commands
 
 ```bash
-# Create all tables (no-op if they exist; honors SUPABASE_SCHEMA)
+# Create or update all tables (safe to re-run; honors SUPABASE_SCHEMA)
 npm run db:setup
 
 # Print the SQL it would run (schema-qualified when SUPABASE_SCHEMA is set)
 npm run db:setup -- --print
 ```
 
-To change the schema later, edit `setup.sql` (for fresh installs) and run matching `ALTER TABLE` statements against any database that already holds data — the Supabase SQL editor works well for both. Supabase's Table Editor doubles as a database GUI.
+`setup.sql` is idempotent: every statement uses `IF NOT EXISTS` / `OR REPLACE`, and an "Upgrades" section at the end carries the `ALTER TABLE` steps that bring older databases forward. To change the schema, edit the `CREATE` statements (fresh installs) *and* add the matching idempotent `ALTER TABLE` to the Upgrades section (existing databases), then everyone re-runs the file. Supabase's Table Editor doubles as a database GUI.
 
 ## Security Considerations
 

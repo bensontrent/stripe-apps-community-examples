@@ -1,9 +1,15 @@
--- setup.sql — creates every table the backend expects.
+-- setup.sql — creates every table and function the backend expects.
 -- This file is the single source of truth for the database schema.
 --
--- Run it once against your Supabase project, either way:
+-- Run it against your Supabase project, either way:
 --   • paste it into the Supabase SQL editor (Dashboard → SQL Editor → Run), or
 --   • npm run db:setup   (applies it over DATABASE_URL from .env.local)
+--
+-- It is SAFE TO RE-RUN: every statement is idempotent (CREATE TABLE IF NOT
+-- EXISTS, CREATE INDEX IF NOT EXISTS, CREATE OR REPLACE FUNCTION, and the
+-- "Upgrades" section at the end uses IF EXISTS / IF NOT EXISTS). Running it
+-- on an empty database creates everything; running it on a database that
+-- already has the tables adds whatever is new and leaves the data alone.
 --
 -- Tables land in the `public` schema. To share a Supabase project you already
 -- use for something else, set SUPABASE_SCHEMA in .env.local and run
@@ -13,9 +19,11 @@
 -- prefer the SQL editor). Then add the schema to "Exposed schemas" in the
 -- Supabase dashboard (Settings → API).
 --
--- To change the schema later: edit the CREATE TABLE statements here (for
--- fresh installs) and run matching ALTER TABLE statements against any
--- database that already holds data.
+-- To change the schema later: edit the CREATE statements here (that is what
+-- fresh installs get) AND add the matching idempotent ALTER TABLE to the
+-- "Upgrades" section at the end (that is what existing databases get) —
+-- CREATE TABLE IF NOT EXISTS never touches a table that already exists.
+-- Then everyone just re-runs this file.
 --
 -- The shape, in three parts:
 --
@@ -23,13 +31,19 @@
 --                    auth_accounts is a sign-in method (credential or OAuth
 --                    provider) — Better Auth's "account" model, unrelated to
 --                    Stripe accounts. `users` also carries app-owned columns
---                    (settings, billing customer ids); Better Auth ignores
---                    columns it doesn't know about.
+--                    (billing customer ids); Better Auth ignores columns it
+--                    doesn't know about.
 --
 --   Merchant side    stripe_accounts (one row per acct_… id the app is
 --                    installed into) and memberships (the user ↔ Stripe
---                    account many-to-many, carrying the user's role and
---                    per-company settings).
+--                    account many-to-many, carrying the user's role).
+--
+--   App settings     account_settings (shared by everyone in a Stripe
+--                    account) and user_settings (one Dashboard user's own)
+--                    — one jsonb row per owner per mode, keyed by the ids
+--                    the Stripe App signature vouches for (no app login
+--                    needed), written through the settings_merge /
+--                    patch_*_settings functions.
 --
 --   App login        stripe_app_sessions — which app user is logged in
 --                    inside the Stripe Dashboard. (The short-lived login
@@ -39,6 +53,11 @@
 --                    app publisher's own Stripe account. The matching
 --                    Customer ids live on `users`.
 --
+-- Have a database from before the settings tables existed (2026-09-21)?
+-- Just re-run this file (`npm run db:setup`): the settings tables and
+-- functions are created, and the "Upgrades" section drops the old
+-- `settings` columns.
+--
 -- Two conventions worth noticing:
 --
 --   Natural keys     Stripe ids are unique and immutable, so Stripe-owned
@@ -46,26 +65,24 @@
 --                    stripe_accounts, sub_… for subscriptions). No surrogate
 --                    uuid + separate unique column carrying the same fact.
 --
---   livemode         Kept only where Stripe itself splits data by mode:
---                    billing customers (two columns on users) and
---                    subscriptions (a livemode column). App-owned data —
---                    roles, settings — is mode-independent; if an account
---                    needs mode-split settings, nest them inside the jsonb
---                    ({"live": …, "test": …}) instead of forking the schema.
+--   livemode         Kept where Stripe itself splits data by mode — billing
+--                    customers (two columns on users), subscriptions (a
+--                    livemode column) — and on the settings tables, so what
+--                    you configure in test mode never applies in live mode.
+--                    Roles and login state are mode-independent.
 
 -- ============================================================================
 --  Better Auth (managed by Better Auth over DATABASE_URL; mapped in
 --  src/lib/auth.ts)
 -- ============================================================================
 
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" text NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"name" text,
 	"image" text,
 	-- App-owned columns (written via supabase-js, not Better Auth):
-	"settings" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	-- The user as a Customer in the app publisher's Stripe billing account,
 	-- one id per mode. NULL until first checkout in that mode.
 	"stripe_customer_id_live" text,
@@ -77,7 +94,7 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_stripe_customer_id_test_unique" UNIQUE("stripe_customer_id_test")
 );
 
-CREATE TABLE "sessions" (
+CREATE TABLE IF NOT EXISTS "sessions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE cascade,
 	"token" text NOT NULL,
@@ -88,10 +105,10 @@ CREATE TABLE "sessions" (
 	"updated_at" timestamptz DEFAULT now() NOT NULL,
 	CONSTRAINT "sessions_token_unique" UNIQUE("token")
 );
-CREATE INDEX "sessions_user_id_idx" ON "sessions" ("user_id");
+CREATE INDEX IF NOT EXISTS "sessions_user_id_idx" ON "sessions" ("user_id");
 
 -- A sign-in method (email/password credential or OAuth provider link).
-CREATE TABLE "auth_accounts" (
+CREATE TABLE IF NOT EXISTS "auth_accounts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE cascade,
 	"account_id" text NOT NULL,
@@ -106,9 +123,9 @@ CREATE TABLE "auth_accounts" (
 	"created_at" timestamptz DEFAULT now() NOT NULL,
 	"updated_at" timestamptz DEFAULT now() NOT NULL
 );
-CREATE INDEX "auth_accounts_user_id_idx" ON "auth_accounts" ("user_id");
+CREATE INDEX IF NOT EXISTS "auth_accounts_user_id_idx" ON "auth_accounts" ("user_id");
 
-CREATE TABLE "verifications" (
+CREATE TABLE IF NOT EXISTS "verifications" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"identifier" text NOT NULL,
 	"value" text NOT NULL,
@@ -116,7 +133,7 @@ CREATE TABLE "verifications" (
 	"created_at" timestamptz DEFAULT now() NOT NULL,
 	"updated_at" timestamptz DEFAULT now() NOT NULL
 );
-CREATE INDEX "verifications_identifier_idx" ON "verifications" ("identifier");
+CREATE INDEX IF NOT EXISTS "verifications_identifier_idx" ON "verifications" ("identifier");
 
 -- ============================================================================
 --  Merchant side — the Stripe accounts the app is installed into
@@ -126,12 +143,9 @@ CREATE INDEX "verifications_identifier_idx" ON "verifications" ("identifier");
 -- state is two nullable columns: NULL means "not installed in that mode",
 -- non-NULL holds the installation id. A general sandbox has its own acct_…
 -- id, so it's simply another row here (installs land in the test column).
-CREATE TABLE "stripe_accounts" (
+CREATE TABLE IF NOT EXISTS "stripe_accounts" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text,
-	-- Settings shared by every member of the account (e.g. the company
-	-- office address).
-	"settings" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"live_installation_id" text,
 	"test_installation_id" text,
 	"created_at" timestamptz DEFAULT now() NOT NULL,
@@ -139,19 +153,17 @@ CREATE TABLE "stripe_accounts" (
 );
 
 -- The user ↔ Stripe account many-to-many. Data about the *relationship*
--- lives here: the user's role in that company, and their settings within it
--- (e.g. which address is their local office).
-CREATE TABLE "memberships" (
+-- lives here: the user's role in that company.
+CREATE TABLE IF NOT EXISTS "memberships" (
 	"stripe_account_id" text NOT NULL REFERENCES "stripe_accounts"("id") ON DELETE cascade,
 	"user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE cascade,
 	"role" text DEFAULT 'member' NOT NULL,
-	"settings" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamptz DEFAULT now() NOT NULL,
 	"updated_at" timestamptz DEFAULT now() NOT NULL,
 	CONSTRAINT "memberships_pkey" PRIMARY KEY ("stripe_account_id", "user_id"),
 	CONSTRAINT "memberships_role_check" CHECK ("role" IN ('owner', 'admin', 'member'))
 );
-CREATE INDEX "memberships_user_id_idx" ON "memberships" ("user_id");
+CREATE INDEX IF NOT EXISTS "memberships_user_id_idx" ON "memberships" ("user_id");
 
 -- ============================================================================
 --  Stripe App login — who is logged in inside the Stripe Dashboard
@@ -168,7 +180,7 @@ CREATE INDEX "memberships_user_id_idx" ON "memberships" ("user_id");
 -- dashboard user id (Connect/platform contexts). Distinct from memberships —
 -- a membership says the user belongs to the account; this row says the app's
 -- UI extension currently has them logged in. Deleted on app logout.
-CREATE TABLE "stripe_app_sessions" (
+CREATE TABLE IF NOT EXISTS "stripe_app_sessions" (
 	"stripe_account_id" text NOT NULL,
 	"stripe_user_id" text DEFAULT '' NOT NULL,
 	"user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE cascade,
@@ -176,7 +188,7 @@ CREATE TABLE "stripe_app_sessions" (
 	"updated_at" timestamptz DEFAULT now() NOT NULL,
 	CONSTRAINT "stripe_app_sessions_pkey" PRIMARY KEY ("stripe_account_id", "stripe_user_id")
 );
-CREATE INDEX "stripe_app_sessions_user_id_idx" ON "stripe_app_sessions" ("user_id");
+CREATE INDEX IF NOT EXISTS "stripe_app_sessions_user_id_idx" ON "stripe_app_sessions" ("user_id");
 
 -- ============================================================================
 --  Publisher side — charging app users for the app itself
@@ -185,7 +197,7 @@ CREATE INDEX "stripe_app_sessions_user_id_idx" ON "stripe_app_sessions" ("user_i
 -- Subscription state synced from the publisher billing account's webhooks.
 -- The sub_… id is the primary key; livemode stays because live and test
 -- subscriptions are genuinely different Stripe objects.
-CREATE TABLE "subscriptions" (
+CREATE TABLE IF NOT EXISTS "subscriptions" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE cascade,
 	"stripe_customer_id" text NOT NULL,
@@ -205,7 +217,86 @@ CREATE TABLE "subscriptions" (
 	"created_at" timestamptz DEFAULT now() NOT NULL,
 	"updated_at" timestamptz DEFAULT now() NOT NULL
 );
-CREATE INDEX "subscriptions_user_id_idx" ON "subscriptions" ("user_id");
+CREATE INDEX IF NOT EXISTS "subscriptions_user_id_idx" ON "subscriptions" ("user_id");
+
+-- ============================================================================
+--  App settings — the /api/stripe-app/settings route
+--  (see src/lib/settings.ts and the model in src/types/settings.ts)
+-- ============================================================================
+
+-- A setting belongs to one of two scopes, each with its own table, and every
+-- row is for one mode: (owner, livemode) is the primary key, so test-mode
+-- settings and live-mode settings are different rows. The owner ids are the
+-- ones every signed request from the app carries — the Stripe account
+-- (acct_…) and the Dashboard user (usr_…) — so settings work as soon as the
+-- app is installed, with no app login involved (the Better Auth login is a
+-- separate, optional step, e.g. for paying for the app). Which keys live in
+-- which table is decided once, in src/types/settings.ts; the jsonb column
+-- only ever holds keys that file describes (the route validates writes).
+
+-- Shared by everyone who uses the app in the Stripe account (e.g. the
+-- company name).
+CREATE TABLE IF NOT EXISTS "account_settings" (
+	"stripe_account_id" text NOT NULL REFERENCES "stripe_accounts"("id") ON DELETE cascade,
+	"livemode" boolean NOT NULL,
+	"settings" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"created_at" timestamptz DEFAULT now() NOT NULL,
+	"updated_at" timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT "account_settings_pkey" PRIMARY KEY ("stripe_account_id", "livemode")
+);
+
+-- One Dashboard user's own preferences within a Stripe account (e.g. their
+-- label printer). stripe_user_id is '' when the caller has no Dashboard
+-- user id (Connect/platform contexts), same as stripe_app_sessions.
+CREATE TABLE IF NOT EXISTS "user_settings" (
+	"stripe_account_id" text NOT NULL REFERENCES "stripe_accounts"("id") ON DELETE cascade,
+	"stripe_user_id" text DEFAULT '' NOT NULL,
+	"livemode" boolean NOT NULL,
+	"settings" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"created_at" timestamptz DEFAULT now() NOT NULL,
+	"updated_at" timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT "user_settings_pkey" PRIMARY KEY ("stripe_account_id", "stripe_user_id", "livemode")
+);
+
+-- Merges `patch` into `current` and returns the result: the patch's keys
+-- replace the current ones, and a key whose value is null is removed, so
+-- the app's default applies again.
+--
+-- Doing the merge here, inside the write, is what makes a settings save
+-- safe under concurrency: reading the row, merging in application code and
+-- writing it back loses one of two overlapping saves.
+CREATE OR REPLACE FUNCTION "settings_merge"(current jsonb, patch jsonb) RETURNS jsonb
+LANGUAGE sql IMMUTABLE AS $$
+	SELECT coalesce(jsonb_object_agg(key, value), '{}'::jsonb)
+	FROM jsonb_each(coalesce(current, '{}'::jsonb) || coalesce(patch, '{}'::jsonb))
+	WHERE value <> 'null'::jsonb;
+$$;
+
+-- One upsert per scope: creates the (owner, mode) row on first save, merges
+-- into it afterwards. The stripe_accounts row the settings hang off is
+-- created on demand too — the first signed request from a fresh install may
+-- well be a settings save. Called from the backend via supabase-js `rpc()`.
+-- Row Level Security still applies inside (the functions run as the
+-- caller), so the public anon key gets no rows here either.
+CREATE OR REPLACE FUNCTION "patch_user_settings"(p_account_id text, p_stripe_user_id text, p_livemode boolean, p_patch jsonb) RETURNS jsonb
+LANGUAGE sql AS $$
+	INSERT INTO "stripe_accounts" ("id") VALUES (p_account_id) ON CONFLICT ("id") DO NOTHING;
+	INSERT INTO "user_settings" ("stripe_account_id", "stripe_user_id", "livemode", "settings")
+	VALUES (p_account_id, p_stripe_user_id, p_livemode, settings_merge('{}'::jsonb, p_patch))
+	ON CONFLICT ("stripe_account_id", "stripe_user_id", "livemode") DO UPDATE
+	SET "settings" = settings_merge("user_settings"."settings", p_patch), "updated_at" = now()
+	RETURNING "settings";
+$$;
+
+CREATE OR REPLACE FUNCTION "patch_account_settings"(p_account_id text, p_livemode boolean, p_patch jsonb) RETURNS jsonb
+LANGUAGE sql AS $$
+	INSERT INTO "stripe_accounts" ("id") VALUES (p_account_id) ON CONFLICT ("id") DO NOTHING;
+	INSERT INTO "account_settings" ("stripe_account_id", "livemode", "settings")
+	VALUES (p_account_id, p_livemode, settings_merge('{}'::jsonb, p_patch))
+	ON CONFLICT ("stripe_account_id", "livemode") DO UPDATE
+	SET "settings" = settings_merge("account_settings"."settings", p_patch), "updated_at" = now()
+	RETURNING "settings";
+$$;
 
 -- ============================================================================
 --  Row Level Security
@@ -221,5 +312,28 @@ ALTER TABLE "auth_accounts" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "verifications" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "stripe_accounts" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "memberships" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "account_settings" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "user_settings" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "stripe_app_sessions" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "subscriptions" ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+--  Upgrades — bring a database created from an older version of this file
+--  up to date. Every statement here must be idempotent (IF EXISTS /
+--  IF NOT EXISTS) so the whole file stays safe to re-run. Newest last.
+-- ============================================================================
+
+-- 2026-09-21: app settings moved from jsonb columns on users,
+-- stripe_accounts and memberships into the account_settings / user_settings
+-- tables above (one row per owner per mode). The columns held nothing in
+-- any deployment we know of, so they are simply dropped.
+ALTER TABLE "users" DROP COLUMN IF EXISTS "settings";
+ALTER TABLE "stripe_accounts" DROP COLUMN IF EXISTS "settings";
+ALTER TABLE "memberships" DROP COLUMN IF EXISTS "settings";
+
+-- 2026-09-21: earlier signatures of the settings functions from the same
+-- day. CREATE OR REPLACE FUNCTION adds an overload rather than replacing a
+-- function whose arguments changed, so retire the old ones explicitly.
+DROP FUNCTION IF EXISTS "patch_user_settings"(uuid, jsonb);
+DROP FUNCTION IF EXISTS "patch_user_settings"(uuid, boolean, jsonb);
+DROP FUNCTION IF EXISTS "patch_account_settings"(text, jsonb);

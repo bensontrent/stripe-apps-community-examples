@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabase';
-import type { Json } from '@/types';
 
 interface RegisterInstallationBody {
   stripeAccountId: string;
   installationId: string;
   livemode: boolean;
-  // Settings shared by every member of the Stripe account
-  // (e.g. the company office address).
-  accountSettings?: Json;
-  // Settings for the current user within the Stripe account
-  // (e.g. the user's local company address).
-  userSettings?: Json;
 }
+
+// App settings (account-wide and per-user) are not part of an installation:
+// they have their own tables and the /api/stripe-app/settings route — see
+// src/lib/settings.ts.
 
 // List the Stripe accounts the current user belongs to, with the user's role
 // and each account's install state (live and test tracked separately —
@@ -88,7 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json() as RegisterInstallationBody;
-    const { stripeAccountId, installationId, livemode, accountSettings, userSettings } = body;
+    const { stripeAccountId, installationId, livemode } = body;
 
     if (!stripeAccountId || !installationId || typeof livemode !== 'boolean') {
       return NextResponse.json(
@@ -100,7 +97,7 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabase();
 
     // Upsert the account row. Only the columns in the payload are written, so
-    // an existing row keeps its name, settings, and other-mode installation id.
+    // an existing row keeps its name and other-mode installation id.
     const installationColumn = livemode
       ? 'live_installation_id'
       : 'test_installation_id';
@@ -111,7 +108,6 @@ export async function POST(req: NextRequest) {
         {
           id: stripeAccountId,
           [installationColumn]: installationId,
-          ...(accountSettings !== undefined && { settings: accountSettings }),
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' }
@@ -144,18 +140,6 @@ export async function POST(req: NextRequest) {
         { onConflict: 'stripe_account_id,user_id', ignoreDuplicates: true }
       );
     if (memberError) throw memberError;
-
-    if (userSettings !== undefined) {
-      const { error } = await supabase
-        .from('memberships')
-        .update({
-          settings: userSettings,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('stripe_account_id', stripeAccountId)
-        .eq('user_id', session.user.id);
-      if (error) throw error;
-    }
 
     return NextResponse.json({ account });
   } catch (error) {

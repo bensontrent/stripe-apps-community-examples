@@ -80,40 +80,40 @@ export type WebhookScope = "connected" | "account";
 //  put publishable keys (pk_*) in this file — those belong client-side,
 //  exposed via NEXT_PUBLIC_* or equivalent.
 //
-//  Required env vars are read directly via process.env.X! — the `!`
-//  asserts they exist, and Node will surface a clear error at first use
-//  if they don't.
-//
-//  Optional env vars (the billing account; the app account's self-event
-//  webhook secrets) are read as `process.env.X` without the assertion.
-//  Helpers below check for `undefined` and either fall back or throw with
-//  a descriptive message.
+//  Nothing is validated at import time. Every credential is read as
+//  `process.env.X` and checked when it is first used: the helpers below
+//  throw a descriptive error naming the missing variable (app account) or
+//  fall back to the app account (billing account). A fresh checkout
+//  therefore builds and runs before every key is configured, and only the
+//  environments you actually hit need their keys.
 // ---------------------------------------------------------------------------
 
 const config = {
     app: {
-        // Three secret API keys — one per environment. All required.
+        // Three secret API keys — one per environment. Each is required for
+        // the environment it serves (test is all you need locally).
         secretKeys: {
-            live: process.env.STRIPE_SECRET_KEY_LIVE!,
-            test: process.env.STRIPE_SECRET_KEY_TEST!,
-            managed_sandbox: process.env.STRIPE_SECRET_KEY_MANAGED_SANDBOX!,
+            live: process.env.STRIPE_SECRET_KEY_LIVE,
+            test: process.env.STRIPE_SECRET_KEY_TEST,
+            managed_sandbox: process.env.STRIPE_SECRET_KEY_MANAGED_SANDBOX,
         },
         // Webhook signing secrets, split by scope:
-        //   connected = events on connected accounts (your users) — required.
+        //   connected = events on connected accounts (your users) — required
+        //               for each environment whose webhooks you receive.
         //   account   = events on your own platform account — optional, only
         //               needed if your App listens to self-account events.
         //               Managed sandbox has no `account` scope.
         webhookSecrets: {
             live: {
-                connected: process.env.STRIPE_WEBHOOK_SECRET_LIVE_CONNECTED!,
+                connected: process.env.STRIPE_WEBHOOK_SECRET_LIVE_CONNECTED,
                 account: process.env.STRIPE_WEBHOOK_SECRET_LIVE_ACCOUNT, // optional
             },
             test: {
-                connected: process.env.STRIPE_WEBHOOK_SECRET_TEST_CONNECTED!,
+                connected: process.env.STRIPE_WEBHOOK_SECRET_TEST_CONNECTED,
                 account: process.env.STRIPE_WEBHOOK_SECRET_TEST_ACCOUNT, // optional
             },
             managed_sandbox: {
-                connected: process.env.STRIPE_WEBHOOK_SECRET_MANAGED_SANDBOX_CONNECTED!,
+                connected: process.env.STRIPE_WEBHOOK_SECRET_MANAGED_SANDBOX_CONNECTED,
             },
         },
     },
@@ -137,31 +137,54 @@ const config = {
 // ---------------------------------------------------------------------------
 //  Stripe clients
 //
-//  One `Stripe` instance per secret API key, constructed once at module
-//  load. Stripe's SDK is designed for one client per key — don't share a
-//  client across keys, and don't construct per-request.
+//  One `Stripe` instance per secret API key, created on first use and then
+//  cached for the life of the process. Stripe's SDK is designed for one
+//  client per key — don't share a client across keys, and don't construct
+//  per-request.
 //
-//  Billing clients are `undefined` if their env vars aren't set. The
-//  `getStripeClient` helper falls back to the app account in that case.
+//  Creating clients lazily (instead of at module load) means a missing key
+//  only fails the request that needs that environment, with an error naming
+//  the variable — not `next build` or every route that imports this file.
+//
+//  `getClient` returns `undefined` when the key isn't set; `getStripeClient`
+//  turns that into a fallback (billing → app) or a descriptive error (app).
 // ---------------------------------------------------------------------------
 
-const stripeClients = {
+const SECRET_KEY_ENV_VARS = {
     app: {
-        live: new Stripe(config.app.secretKeys.live, { apiVersion: STRIPE_API_VERSION }),
-        test: new Stripe(config.app.secretKeys.test, { apiVersion: STRIPE_API_VERSION }),
-        managed_sandbox: new Stripe(config.app.secretKeys.managed_sandbox, {
-            apiVersion: STRIPE_API_VERSION,
-        }),
+        live: "STRIPE_SECRET_KEY_LIVE",
+        test: "STRIPE_SECRET_KEY_TEST",
+        managed_sandbox: "STRIPE_SECRET_KEY_MANAGED_SANDBOX",
     },
-    billing: {
-        live: config.billing.secretKeys.live
-            ? new Stripe(config.billing.secretKeys.live, { apiVersion: STRIPE_API_VERSION })
-            : undefined,
-        test: config.billing.secretKeys.test
-            ? new Stripe(config.billing.secretKeys.test, { apiVersion: STRIPE_API_VERSION })
-            : undefined,
-    },
-};
+} as const;
+
+const stripeClients = new Map<string, Stripe>();
+
+function getClient(account: StripeAccount, environment: StripeEnvironment): Stripe | undefined {
+    const secretKeys: Record<string, string | undefined> = config[account].secretKeys;
+    const secretKey = secretKeys[environment];
+    if (!secretKey) return undefined;
+
+    const cacheKey = `${account}:${environment}`;
+    let client = stripeClients.get(cacheKey);
+    if (!client) {
+        client = new Stripe(secretKey, { apiVersion: STRIPE_API_VERSION });
+        stripeClients.set(cacheKey, client);
+    }
+    return client;
+}
+
+function connectedWebhookSecret(environment: StripeEnvironment): string {
+    const secret = config.app.webhookSecrets[environment].connected;
+    if (!secret) {
+        throw new Error(
+            `[stripe] Missing STRIPE_WEBHOOK_SECRET_${environment.toUpperCase()}_CONNECTED. ` +
+            "Copy the signing secret of that webhook endpoint from the Stripe Dashboard " +
+            "(locally: the whsec_… printed by `stripe listen`).",
+        );
+    }
+    return secret;
+}
 
 // ===========================================================================
 //  Public API
@@ -208,9 +231,17 @@ export function getStripeClient(
             );
         }
         // Fall back to the app client if billing isn't configured separately.
-        return stripeClients.billing[environment] ?? stripeClients.app[environment];
+        const billingClient = getClient("billing", environment);
+        if (billingClient) return billingClient;
     }
-    return stripeClients.app[environment];
+    const client = getClient("app", environment);
+    if (!client) {
+        throw new Error(
+            `[stripe] Missing ${SECRET_KEY_ENV_VARS.app[environment]}. ` +
+            `Set it to use the "${environment}" environment of the app account.`,
+        );
+    }
+    return client;
 }
 
 /**
@@ -261,7 +292,7 @@ export function getWebhookSecret(
         const billingSecret = config.billing.webhookSecrets[environment];
         if (billingSecret) return billingSecret;
         // Fall back to the app account's connected secret.
-        return config.app.webhookSecrets[environment].connected;
+        return connectedWebhookSecret(environment);
     }
 
     if (environment === "managed_sandbox") {
@@ -270,7 +301,7 @@ export function getWebhookSecret(
                 "[stripe] The managed sandbox only emits connected-account events.",
             );
         }
-        return config.app.webhookSecrets.managed_sandbox.connected;
+        return connectedWebhookSecret("managed_sandbox");
     }
 
     if (scope === "account") {
@@ -284,7 +315,7 @@ export function getWebhookSecret(
         return secret;
     }
 
-    return config.app.webhookSecrets[environment].connected;
+    return connectedWebhookSecret(environment);
 }
 
 /**
@@ -293,7 +324,7 @@ export function getWebhookSecret(
  * the app account).
  */
 export function isBillingAccountConfigured(): boolean {
-    return Boolean(stripeClients.billing.live && stripeClients.billing.test);
+    return Boolean(config.billing.secretKeys.live && config.billing.secretKeys.test);
 }
 
 // ===========================================================================
@@ -353,7 +384,9 @@ export function isBillingAccountConfigured(): boolean {
 //  All keys below are SECRET keys (sk_live_..., sk_test_...). Publishable
 //  keys (pk_*) are not used here — those belong on the client side.
 //
-//  Required (app account):
+//  Required (app account) — per environment: only the environments your
+//  deployment actually serves need their keys; a missing one fails at first
+//  use with an error naming it. Locally, the test keys are enough.
 //    STRIPE_SECRET_KEY_LIVE
 //    STRIPE_SECRET_KEY_TEST
 //    STRIPE_SECRET_KEY_MANAGED_SANDBOX

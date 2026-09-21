@@ -13,13 +13,21 @@
 # Prefer Projects to provision Supabase up front? Use the second variant,
 # projects-template.supabase-vercel.yaml.
 #
-# To list it in the public registry, copy this file into a fork of
-# https://github.com/stripe/projects-template-registry as
-# stripe_app_backend/vercel.yaml (and the other variant as
-# stripe_app_backend/supabase-vercel.yaml), set `ref` to the commit to pin,
-# and open a pull request. Docs: https://docs.stripe.com/projects/templates
+# The copy of record lives in the public registry
+# (https://github.com/stripe/projects-template-registry, file
+# stripe_app_backend/vercel.yaml; the other variant is
+# stripe_app_backend/supabase-vercel.yaml). This in-repo file mirrors it.
+# Docs: https://docs.stripe.com/projects/templates
 #
-# To try it before it is in the registry:
+# Releasing a new version (`ref` must be a commit that is already on GitHub,
+# so it always trails the template change by one commit):
+#   1. Commit and push the template change.
+#   2. Set `ref` below (and in the other variant) to that commit
+#      (`git rev-parse HEAD`), commit, push.
+#   3. Open a registry PR that copies both files over the registry copies.
+#
+# To try a local manifest before it is in the registry (needs a projects
+# plugin newer than 0.41.0, which lacks the flag):
 #
 #   stripe projects build my-app --template-manifest /absolute/path/to/projects-template.yaml
 
@@ -38,8 +46,7 @@ install_command: npm install
 
 # Copy the files from the template directory of the community-examples repo.
 repo: https://github.com/bensontrent/stripe-apps-community-examples/tree/main/stripe-app-nextjs-backend
-# Pin the exact commit users receive. Leave empty only for local testing with
-# --template-manifest; fill it in (git rev-parse HEAD) before submitting.
+# The exact commit users receive (see the release steps above).
 ref: ""
 
 metadata:

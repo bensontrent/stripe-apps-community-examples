@@ -11,9 +11,10 @@ stripe projects build my-stripe-app-backend --template bensontrent/stripe-app-ne
 ```
 
 The companion Stripe App (the UI extension that runs inside the Dashboard and
-calls this backend) lives in the
-[stripe-apps-community-examples](https://github.com/bensontrent/stripe-apps-community-examples)
-repo.
+calls this backend) is maintained in its own repo,
+[stripe-app-community-example](https://github.com/bensontrent/stripe-app-community-example);
+the [stripe-apps-community-examples](https://github.com/bensontrent/stripe-apps-community-examples)
+repo bundles both projects side by side.
 
 ## Features
 

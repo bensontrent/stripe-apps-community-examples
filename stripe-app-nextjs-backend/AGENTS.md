@@ -2,7 +2,10 @@
 
 This is a working backend for a Stripe App, scaffolded from the
 [stripe-apps-community-examples](https://github.com/bensontrent/stripe-apps-community-examples)
-repo — either copied by hand or built with `stripe projects build`. Your job is
+repo — either copied by hand or built with `stripe projects build` (template
+`bensontrent/stripe-app-nextjs-backend`). The companion UI extension is
+[stripe-app-community-example](https://github.com/bensontrent/stripe-app-community-example).
+Your job is
 to turn it into the backend of a specific Stripe App without breaking the
 wiring that already works.
 

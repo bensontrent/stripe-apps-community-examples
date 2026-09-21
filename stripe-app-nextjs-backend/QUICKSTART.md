@@ -102,9 +102,15 @@ anything still missing; it disappears once everything is green.
 ### 6. Connect the Stripe App
 
 The UI extension that calls this backend lives in the
-[stripe-apps-community-examples](https://github.com/bensontrent/stripe-apps-community-examples)
-repo (`stripe-app/`). Run it with `stripe apps start`; its
-`src/api/backend.ts` points at `http://localhost:3006` in development.
+[stripe-app-community-example](https://github.com/bensontrent/stripe-app-community-example)
+repo:
+
+```bash
+git clone https://github.com/bensontrent/stripe-app-community-example.git stripe-app
+cd stripe-app && npm install && stripe apps start
+```
+
+Its `src/api/backend.ts` points at `http://localhost:3006` in development.
 
 ## Architecture Overview
 

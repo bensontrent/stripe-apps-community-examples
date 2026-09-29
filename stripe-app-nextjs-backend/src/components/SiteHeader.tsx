@@ -13,7 +13,9 @@ import Logo from './Logo';
 const NAV_LINKS = [
   { href: '/', label: 'Home', exact: true },
   { href: '/docs', label: 'Docs', exact: false },
+  { href: '/plans', label: 'Plans', exact: false },
   { href: '/account', label: 'Account', exact: false },
+  { href: '/billing', label: 'Billing', exact: false },
 ];
 
 function NavLink({

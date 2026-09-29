@@ -183,7 +183,7 @@ Merchant side (connected Stripe accounts):
 
 App settings (see [docs/app-settings](src/content/docs/app-settings.md)):
 
-- **account_settings**: Settings shared by everyone in a Stripe account, one jsonb row per `(stripe_account_id, livemode)`
+- **account_settings**: Settings shared by everyone in a Stripe account, one jsonb row per `(stripe_account_id, livemode)`. Also carries the account's free trial (`trial_started_at`, `trial_usage_count`) — see the paywall docs at `/docs/paywall`
 - **user_settings**: One Dashboard user's own settings, one jsonb row per `(stripe_account_id, stripe_user_id, livemode)` — keyed by the signed Stripe ids (no app login needed); test and live mode are different rows
 
 Publisher side (monetization):
@@ -210,6 +210,8 @@ Publisher side (monetization):
 - `POST /api/stripe-app/token` - Mint a short-lived JWT-in-URL token
 - `POST /api/stripe-app/session` · `GET /api/stripe-app/verify` · `GET /api/stripe-app/userinfo` · `DELETE /api/stripe-app/session` - The Dashboard login handshake
 - `GET /api/stripe-app/settings` · `PATCH /api/stripe-app/settings` - User-scoped, account-wide and test-mode app settings (see [docs/app-settings](src/content/docs/app-settings.md))
+- `GET /api/stripe-app/paywall` · `POST /api/stripe-app/paywall/{trial,usage,refresh}` - Free trial, subscription check and the gated-route pattern (see [docs/paywall](src/content/docs/paywall.md))
+- `GET /api/protected/billing` · `POST /api/protected/billing/{checkout,portal}` - Plans, Stripe Checkout and the customer portal behind the `/billing` page (session auth). `/plans` is the public price list (no login)
 
 ### Public Routes (route-level auth)
 

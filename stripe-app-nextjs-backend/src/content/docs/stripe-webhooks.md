@@ -15,7 +15,7 @@ the route by verifying the `stripe-signature` header with
 {% callout type="error" title="Never skip signature verification" %}
 A webhook endpoint that trusts its payload without verifying the signature
 lets anyone forge events — including `payment_intent.succeeded`. The signing
-secrets live in the `STRIPE_APP_WEBHOOK_SECRET_*` environment variables, one
+secrets live in the `STRIPE_WEBHOOK_SECRET_*` environment variables, one
 per mode (live / test / managed sandbox).
 {% /callout %}
 
@@ -28,12 +28,28 @@ stripe listen --forward-to localhost:3006/api/stripe/webhook
 ```
 
 The CLI prints a `whsec_...` signing secret on startup — put it in
-`STRIPE_APP_WEBHOOK_SECRET_TEST_CONNECTED` in `.env.local`. Then trigger a
+`STRIPE_WEBHOOK_SECRET_TEST_CONNECTED` in `.env.local`. Then trigger a
 test event from another terminal:
 
 ```bash
 stripe trigger customer.subscription.created
 ```
+
+## Billing webhooks
+
+Subscriptions your users buy on `/billing` live in your **billing** account
+(see [Paywall, trials & billing](/docs/paywall)). Point a second endpoint
+there at the same route with `type=billing`:
+
+```
+/api/stripe/webhook?mode=live&type=billing
+```
+
+and subscribe it to `customer.subscription.created`, `.updated` and
+`.deleted`. The route then verifies with the billing account's credentials
+(`STRIPE_BILLING_WEBHOOK_SECRET_*`, falling back to the app account's when
+you use one Stripe account for both) and writes each event's subscription
+into the `subscriptions` table, which is what the paywall reads.
 
 ## Scheduled work (cron)
 

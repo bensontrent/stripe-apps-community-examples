@@ -53,6 +53,13 @@
 --                    app publisher's own Stripe account. The matching
 --                    Customer ids live on `users`.
 --
+--   Paywall          no table of its own: the account's free trial is two
+--                    columns on account_settings (when it started, how
+--                    much of its allowance is used), written through
+--                    start_account_trial / record_trial_usage. Together
+--                    with subscriptions it answers "may this account use
+--                    the paid features?" (src/lib/paywall.ts).
+--
 -- Have a database from before the settings tables existed (2026-09-21)?
 -- Just re-run this file (`npm run db:setup`): the settings tables and
 -- functions are created, and the "Upgrades" section drops the old
@@ -204,6 +211,10 @@ CREATE TABLE IF NOT EXISTS "subscriptions" (
 	"livemode" boolean NOT NULL,
 	"status" text NOT NULL,
 	"price_id" text,
+	-- The price's lookup key (e.g. 'community_example_pro_monthly'): how the
+	-- plan catalogue in src/config/plans.json recognises the plan without
+	-- hard-coding price ids, which differ between test and live mode.
+	"price_lookup_key" text,
 	"quantity" integer,
 	"cancel_at_period_end" boolean DEFAULT false NOT NULL,
 	"current_period_start" timestamptz,
@@ -236,13 +247,26 @@ CREATE INDEX IF NOT EXISTS "subscriptions_user_id_idx" ON "subscriptions" ("user
 
 -- Shared by everyone who uses the app in the Stripe account (e.g. the
 -- company name).
+--
+-- The row also carries the account's free trial (see "Paywall" below). The
+-- trial is account-wide and per mode, exactly like the row itself, so it
+-- lives here rather than in a table of its own. The two trial columns are
+-- deliberately NOT inside the `settings` jsonb: that document is written by
+-- the app through PATCH /api/stripe-app/settings, and a trial the client
+-- could edit would not be a trial. Only the two paywall functions write
+-- these columns.
 CREATE TABLE IF NOT EXISTS "account_settings" (
 	"stripe_account_id" text NOT NULL REFERENCES "stripe_accounts"("id") ON DELETE cascade,
 	"livemode" boolean NOT NULL,
 	"settings" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	-- When the free trial started. NULL = not started yet.
+	"trial_started_at" timestamptz,
+	-- How many times the paid feature was used during the trial.
+	"trial_usage_count" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamptz DEFAULT now() NOT NULL,
 	"updated_at" timestamptz DEFAULT now() NOT NULL,
-	CONSTRAINT "account_settings_pkey" PRIMARY KEY ("stripe_account_id", "livemode")
+	CONSTRAINT "account_settings_pkey" PRIMARY KEY ("stripe_account_id", "livemode"),
+	CONSTRAINT "account_settings_trial_usage_count_check" CHECK ("trial_usage_count" >= 0)
 );
 
 -- One Dashboard user's own preferences within a Stripe account (e.g. their
@@ -299,6 +323,68 @@ LANGUAGE sql AS $$
 $$;
 
 -- ============================================================================
+--  Paywall — free trials (the /api/stripe-app/paywall routes)
+--  (see src/lib/paywall.ts and the decision in src/types/paywall.ts)
+-- ============================================================================
+
+-- One free trial per Stripe account per mode, stored as two columns on the
+-- account_settings row: trial_started_at and trial_usage_count. The trial
+-- starts when someone in the account accepts the trial terms (not at
+-- install), and the columns are never cleared: uninstalling and
+-- reinstalling the app does not buy a second trial. Only live mode is
+-- paywalled by default; the test-mode row's trial is used only when a
+-- developer sets PAYWALL_ENFORCE_IN_TEST_MODE to rehearse the flow — test
+-- and live being different rows is what keeps a rehearsal from using up
+-- the real trial.
+--
+-- The limits themselves (TRIAL_DAYS_LIMIT, TRIAL_COUNT_LIMIT) are backend
+-- configuration, not columns: the row stores facts (when, how many), the
+-- backend applies today's policy to them. Changing a limit therefore applies
+-- to running trials too.
+
+-- Upgrade for databases whose account_settings table predates the trial
+-- columns (2026-09-29). It sits here rather than in the "Upgrades" section
+-- at the end because the two functions below are checked against the table
+-- when they are created, so the columns must exist first.
+ALTER TABLE "account_settings" ADD COLUMN IF NOT EXISTS "trial_started_at" timestamptz;
+ALTER TABLE "account_settings" ADD COLUMN IF NOT EXISTS "trial_usage_count" integer DEFAULT 0 NOT NULL;
+
+-- Starts the account's trial and returns the row. Idempotent: when the trial
+-- has already started the row is returned with its original start date, so
+-- two users pressing "Start trial" at the same moment (or one user pressing
+-- it twice) can neither restart the clock nor fail. Creates the
+-- stripe_accounts row and the account_settings row on demand, like the
+-- settings functions.
+CREATE OR REPLACE FUNCTION "start_account_trial"(p_account_id text, p_livemode boolean) RETURNS "account_settings"
+LANGUAGE sql AS $$
+	INSERT INTO "stripe_accounts" ("id") VALUES (p_account_id) ON CONFLICT ("id") DO NOTHING;
+	INSERT INTO "account_settings" ("stripe_account_id", "livemode", "trial_started_at")
+	VALUES (p_account_id, p_livemode, now())
+	ON CONFLICT ("stripe_account_id", "livemode") DO UPDATE
+	SET "trial_started_at" = coalesce("account_settings"."trial_started_at", now())
+	RETURNING *;
+$$;
+
+-- Counts one use of the paid feature against the trial and returns the new
+-- count — or NULL when nothing was counted, because the trial hasn't
+-- started or the allowance (p_limit, NULL = no cap) is already used up.
+--
+-- The check and the increment are one UPDATE, so the cap holds under
+-- concurrency: with one use left and two requests racing, exactly one gets a
+-- number back. Reading the count, comparing in application code and writing
+-- count + 1 would let both through.
+CREATE OR REPLACE FUNCTION "record_trial_usage"(p_account_id text, p_livemode boolean, p_limit integer) RETURNS integer
+LANGUAGE sql AS $$
+	UPDATE "account_settings"
+	SET "trial_usage_count" = "trial_usage_count" + 1
+	WHERE "stripe_account_id" = p_account_id
+	  AND "livemode" = p_livemode
+	  AND "trial_started_at" IS NOT NULL
+	  AND (p_limit IS NULL OR "trial_usage_count" < p_limit)
+	RETURNING "trial_usage_count";
+$$;
+
+-- ============================================================================
 --  Row Level Security
 -- ============================================================================
 
@@ -337,3 +423,9 @@ ALTER TABLE "memberships" DROP COLUMN IF EXISTS "settings";
 DROP FUNCTION IF EXISTS "patch_user_settings"(uuid, jsonb);
 DROP FUNCTION IF EXISTS "patch_user_settings"(uuid, boolean, jsonb);
 DROP FUNCTION IF EXISTS "patch_account_settings"(text, jsonb);
+
+-- 2026-09-29: the paywall example. The trial columns on account_settings are
+-- added in the "Paywall" section above (they must exist before its functions
+-- are created); subscriptions gained the price's lookup key so a plan can be
+-- recognised in both modes.
+ALTER TABLE "subscriptions" ADD COLUMN IF NOT EXISTS "price_lookup_key" text;

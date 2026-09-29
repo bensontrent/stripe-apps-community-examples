@@ -62,6 +62,18 @@ declare global {
       STRIPE_BILLING_WEBHOOK_SECRET_TEST?: string;
 
       // ----------------------------------------------------------------
+      // Paywall & billing (src/lib/paywall.ts + src/lib/billing.ts)
+      // ----------------------------------------------------------------
+      /** Days a free trial lasts. Default 30; 0 = no time limit. */
+      TRIAL_DAYS_LIMIT?: string;
+      /** Uses of the paid feature a trial includes. Default 25; 0 = no cap. */
+      TRIAL_COUNT_LIMIT?: string;
+      /** 'true' applies the paywall in test mode too (for rehearsing it). */
+      PAYWALL_ENFORCE_IN_TEST_MODE?: string;
+      /** Which mode the website's /billing page charges in. Default 'test'. */
+      BILLING_ENVIRONMENT?: 'live' | 'test';
+
+      // ----------------------------------------------------------------
       // Proxy authentication (src/proxy.ts + src/lib/proxy-auth.ts)
       // ----------------------------------------------------------------
       /** Stripe App signing secret — verifies `stripe-signature` headers. */
@@ -74,6 +86,15 @@ declare global {
       DEV_API_KEY?: string;
       /** Signs short-lived JWT-in-URL tokens (src/lib/url-token.ts). */
       URL_TOKEN_SECRET: string;
+
+      // ----------------------------------------------------------------
+      // Email (src/lib/email.ts) — optional
+      // ----------------------------------------------------------------
+      POSTMARK_SERVER_API_TOKEN?: string;
+      /** A sender signature or domain verified in Postmark. */
+      POSTMARK_FROM_EMAIL?: string;
+      /** Defaults to 'outbound'. */
+      POSTMARK_MESSAGE_STREAM?: string;
 
       // App
       NODE_ENV: 'development' | 'production' | 'test';

@@ -55,6 +55,7 @@ import {
  */
 const PUBLIC_ROUTES = [
   '/docs', // public documentation (rendered from src/content/docs)
+  '/plans', // public price list (reads nothing about the visitor)
   '/login', // sign-in page
   '/register', // sign-up page
   '/reset-password', // request a password-reset email

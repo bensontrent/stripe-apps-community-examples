@@ -42,9 +42,9 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 - [x] Full page app example
 - [ ] Connected webhooks
 - [ ] App user email notifications
-- [ ] App paywall
-- [ ] App monetization and user billing dashboard
-- [ ] App trial strategies
+- [x] App paywall — [docs](stripe-app-nextjs-backend/src/content/docs/paywall.md), demo at `/examples/paywall` in the app
+- [x] App monetization and user billing dashboard — a public price list at `/plans`, and plans, Stripe Checkout and the customer portal at `/billing` on the backend
+- [x] App trial strategies — per-account trial limited by days (`TRIAL_DAYS_LIMIT`), by usage (`TRIAL_COUNT_LIMIT`), or both; test mode is always free
 - [X] Demo documentation files: how to document your app to the public with markdoc.dev
 - [x] App settings (user, account-wide and test mode settings) — [docs](stripe-app-nextjs-backend/src/content/docs/app-settings.md), demo at `/examples/app-settings` in the app
 - [ ] Security best practices

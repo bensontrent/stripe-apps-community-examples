@@ -1,0 +1,30 @@
+[
+  {
+    "lookupKey": "community_example_starter_monthly",
+    "name": "Starter",
+    "description": "For a single store getting started.",
+    "features": ["Unlimited widgets", "Email support"],
+    "unitAmount": 900,
+    "currency": "usd",
+    "interval": "month"
+  },
+  {
+    "lookupKey": "community_example_pro_monthly",
+    "name": "Pro",
+    "description": "For teams that rely on the app every day.",
+    "features": ["Everything in Starter", "Priority support", "Early access to new features"],
+    "unitAmount": 2900,
+    "currency": "usd",
+    "interval": "month",
+    "highlighted": true
+  },
+  {
+    "lookupKey": "community_example_pro_yearly",
+    "name": "Pro (yearly)",
+    "description": "Pro, billed once a year. Two months free.",
+    "features": ["Everything in Pro", "Billed annually"],
+    "unitAmount": 29000,
+    "currency": "usd",
+    "interval": "year"
+  }
+]

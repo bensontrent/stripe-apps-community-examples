@@ -9,6 +9,7 @@
     "lint": "eslint",
     "setup": "node scripts/setup.mjs",
     "db:setup": "node scripts/db-setup.mjs",
+    "billing:seed": "node scripts/seed-plans.mjs",
     "deploy": "node scripts/deploy-vercel.mjs",
     "supabase-get-typescript-types": "npx supabase gen types typescript --project-id \"REPLACE_ME_WITH_YOUR_PROJECT_ID\" --schema public > src/types/supabase.ts"
   },

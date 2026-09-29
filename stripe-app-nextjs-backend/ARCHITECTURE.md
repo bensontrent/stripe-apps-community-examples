@@ -90,6 +90,7 @@ Database                   queries user data
 **Publisher side (monetization):**
 
 - `subscriptions`: Subscription state synced from the publisher account's webhooks. The `sub_...` id is the primary key; `livemode` stays as a column because live and test subscriptions are genuinely different Stripe objects
+- Free trial: no table of its own. It is two columns on `account_settings` — `trial_started_at` and `trial_usage_count` — so there is one trial per Stripe account per mode. They are columns rather than keys in the `settings` jsonb because the app can write that document. Written only through `start_account_trial` (idempotent) and `record_trial_usage` (atomic check-and-increment) in `setup.sql`. The limits are configuration (`TRIAL_DAYS_LIMIT`, `TRIAL_COUNT_LIMIT`), not columns. An account may use the paid features in test mode, with a running trial, or when any of its members (`memberships`) has a subscription in good standing — the decision is `resolvePaywall()` in `src/types/paywall.ts`; docs at `/docs/paywall`
 
 **Relationships:**
 
@@ -366,7 +367,7 @@ dedicated schema, so `npm run setup` connects the Supabase project you choose.
 
 - [ ] Email verification
 - [ ] OAuth providers
-- [ ] Subscription management UI
+- [x] Subscription management UI (`/plans`: public price list; `/billing`: plans, Stripe Checkout, customer portal)
 - [ ] Admin dashboard
 
 ### Phase 3 (Future)

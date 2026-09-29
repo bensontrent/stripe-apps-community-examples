@@ -1,5 +1,5 @@
+import { syncSubscription } from '@/lib/billing';
 import { getStripeClient, getWebhookSecret, StripeEnvironment } from '@/lib/stripe';
-import { getSupabase } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
@@ -7,12 +7,15 @@ import Stripe from 'stripe';
 //   /api/stripe/webhook?mode=live&type=connected
 //   /api/stripe/webhook?mode=test&type=connected
 //   /api/stripe/webhook?mode=test&type=managed_sandbox
+//   /api/stripe/webhook?mode=live&type=billing
+//   /api/stripe/webhook?mode=test&type=billing
 // Then read the params off the incoming request.
-
-// Stripe sends unix-second timestamps; Postgres wants ISO strings.
-function toTimestamp(seconds: number | null | undefined): string | null {
-  return seconds ? new Date(seconds * 1000).toISOString() : null;
-}
+//
+// type=billing is the endpoint in the account that charges your app's users
+// (see src/lib/billing.ts): it receives the customer.subscription.* events
+// that keep the `subscriptions` table — and therefore the paywall — current.
+// It is verified with the billing account's credentials, which fall back to
+// the app account's when you use one Stripe account for both.
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,8 +30,13 @@ export async function POST(req: NextRequest) {
       : mode === 'live' ? 'live'
       : 'test';
 
-    const stripe = getStripeClient(environment);
-    const webhookSecret = getWebhookSecret(environment);
+    const isBilling = type === 'billing' && environment !== 'managed_sandbox';
+    const stripe = isBilling
+      ? getStripeClient(environment, 'billing')
+      : getStripeClient(environment);
+    const webhookSecret = isBilling
+      ? getWebhookSecret(environment, 'billing')
+      : getWebhookSecret(environment);
 
     const body = await req.text();
     const signature = req.headers.get('stripe-signature');
@@ -62,73 +70,21 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      // Every subscription change — created, renewed, plan changed, payment
+      // failed (past_due), cancelled (deleted) — is handled the same way:
+      // write the subscription's current state. The event carries the full
+      // object, including status 'canceled' on deletion, so there is no
+      // per-event logic to get out of step.
       case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription;
-
-        // Find the user this customer belongs to. Live and test customer ids
-        // are separate columns on users; the event's livemode picks the one
-        // to match against.
-        const customerColumn = event.livemode
-          ? 'stripe_customer_id_live'
-          : 'stripe_customer_id_test';
-        const { data: user, error: userError } = await getSupabase()
-          .from('users')
-          .select('id')
-          .eq(customerColumn, subscription.customer as string)
-          .maybeSingle();
-        if (userError) throw userError;
-
-        if (user) {
-          // Upsert subscription
-
-          const item = subscription.items.data[0];
-
-          const updatedSubscriptionValues = {
-            status: subscription.status,
-            price_id: item?.price.id ?? null,
-            quantity: item?.quantity ?? null,
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            current_period_start: toTimestamp(item?.current_period_start),
-            current_period_end: toTimestamp(item?.current_period_end),
-            ended_at: toTimestamp(subscription.ended_at),
-            cancel_at: toTimestamp(subscription.cancel_at),
-            canceled_at: toTimestamp(subscription.canceled_at),
-            trial_start: toTimestamp(subscription.trial_start),
-            trial_end: toTimestamp(subscription.trial_end),
-            metadata: subscription.metadata,
-            updated_at: new Date().toISOString(),
-          };
-
-          const { error } = await getSupabase()
-            .from('subscriptions')
-            .upsert(
-              {
-                id: subscription.id,
-                user_id: user.id,
-                stripe_customer_id: subscription.customer as string,
-                livemode: event.livemode,
-                ...updatedSubscriptionValues,
-              },
-              { onConflict: 'id' }
-            );
-          if (error) throw error;
-        }
-        break;
-      }
-
+      case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-
-        const { error } = await getSupabase()
-          .from('subscriptions')
-          .update({
-            status: 'canceled',
-            ended_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', subscription.id);
-        if (error) throw error;
+        const synced = await syncSubscription(subscription);
+        if (!synced) {
+          // Not one of our users' customers (e.g. created by hand in the
+          // Dashboard). Acknowledge it so Stripe doesn't retry.
+          console.log('Subscription for an unknown customer, skipped:', subscription.id);
+        }
         break;
       }
 

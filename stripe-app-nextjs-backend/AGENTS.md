@@ -62,6 +62,14 @@ wiring that already works.
 - Keep the `/api/stripe-app/*` signed-request routes and the login handshake
   (`/stripe`, `/api/stripe-app/{session,verify,userinfo}`) working — the
   companion Stripe App depends on them.
+- The paywall is enforced on the backend: every route that does paid work
+  calls `recordFeatureUse()` (`src/lib/paywall.ts`) before the work and
+  answers 402 when it says no. Hiding UI in the Stripe App is not a gate.
+- `src/types/paywall.ts` and `src/types/settings.ts` have identical copies in
+  the companion Stripe App. Change both or neither.
+- The plans in `src/config/plans.json` are dummy data tied to Stripe by price
+  lookup key; never hard-code price ids. `npm run billing:seed` creates them
+  in test mode.
 
 ## Verification
 

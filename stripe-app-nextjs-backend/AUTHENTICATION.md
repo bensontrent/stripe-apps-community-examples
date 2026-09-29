@@ -127,9 +127,10 @@ handlers do the real verification with `auth.api.getSession()` — see
 
 The browser-facing pages live in the [`(login)` route group](src/app/(login)):
 `/login`, `/register`, `/reset-password`, and `/confirm` (the password-reset
-landing page — in this example the reset link is printed to the backend
-terminal; wire a real email service into `sendResetPassword` in
-`src/lib/auth.ts`). `/end-session` is a generic sign-out landing page.
+landing page — the reset link is emailed through Postmark when
+`POSTMARK_SERVER_API_TOKEN` and `POSTMARK_FROM_EMAIL` are set, and printed to
+the backend terminal otherwise; see `sendResetPassword` in `src/lib/auth.ts`
+and `src/lib/email.ts`). `/end-session` is a generic sign-out landing page.
 
 ## The Stripe App user login flow
 

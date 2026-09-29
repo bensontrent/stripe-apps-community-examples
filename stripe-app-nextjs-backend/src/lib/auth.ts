@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 // Maps SUPABASE_POOLER_URL / SUPABASE_DB_URL onto DATABASE_URL when Supabase was
 // provisioned through Stripe Projects. See src/lib/env.ts.
 import './env';
+import { escapeHtml, sendEmail } from './email';
 import { dbSchema } from './supabase';
 
 // Better Auth manages its own tables (users, sessions, auth_accounts,
@@ -79,10 +80,33 @@ export const auth = betterAuth({
     requireEmailVerification: false,
     // The /reset-password page calls authClient.requestPasswordReset() with
     // redirectTo: '/confirm'; Better Auth then asks us to deliver the link.
-    // No email provider is wired into this example, so the link is printed
-    // to the backend terminal — swap in your email service (Resend, SES,
-    // Postmark, …) here.
+    // The link is emailed through Postmark (src/lib/email.ts) when
+    // POSTMARK_SERVER_API_TOKEN and POSTMARK_FROM_EMAIL are set. Without
+    // them — or when sending fails under `next dev` — it is printed to the
+    // backend terminal, so the flow works before email is configured.
     sendResetPassword: async ({ user, url }) => {
+      const result = await sendEmail({
+        to: user.email,
+        subject: 'Reset your password',
+        text:
+          `Someone asked to reset the password for ${user.email}.\n\n` +
+          `Choose a new password: ${url}\n\n` +
+          `If that wasn't you, ignore this email — your password stays the same.`,
+        html:
+          `<p>Someone asked to reset the password for ${escapeHtml(user.email)}.</p>` +
+          `<p><a href="${escapeHtml(url)}">Choose a new password</a></p>` +
+          `<p>If that wasn't you, ignore this email — your password stays the same.</p>`,
+      });
+
+      if (result.status === 'sent') {
+        console.log(`[auth] Password reset email sent to ${user.email}`);
+        return;
+      }
+      if (result.status === 'failed') {
+        console.error(`[auth] Password reset email failed: ${result.error}`);
+        // Never print a working reset link into production logs.
+        if (process.env.NODE_ENV !== 'development') return;
+      }
       console.log(`[auth] Password reset link for ${user.email}: ${url}`);
     },
   },

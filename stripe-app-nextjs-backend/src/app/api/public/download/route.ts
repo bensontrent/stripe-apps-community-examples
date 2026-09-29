@@ -11,8 +11,8 @@
 //
 // Get a token from POST /api/stripe-app/token (a signed Stripe App request).
 
-import { NextRequest, NextResponse } from 'next/server';
 import { verifyUrlToken } from '@/lib/url-token';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token');
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       accountId: payload.accountId,
       message:
-        'URL token verified at the route level. Replace this JSON with your file download.',
+        'URL token verified at the route level. Replace this JSON with your file download, or GET route.',
     });
   } catch (error) {
     return NextResponse.json(

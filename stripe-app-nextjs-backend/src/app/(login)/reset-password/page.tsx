@@ -27,8 +27,8 @@ function ResetPasswordForm() {
     setLoading(true);
 
     // Better Auth emails a link to /confirm?token=… (see sendResetPassword
-    // in src/lib/auth.ts — this example prints the link to the backend
-    // terminal instead of sending a real email).
+    // in src/lib/auth.ts — without Postmark configured the link is printed
+    // to the backend terminal instead).
     const { error } = await requestPasswordReset({
       email,
       redirectTo: '/confirm',
@@ -49,8 +49,8 @@ function ResetPasswordForm() {
         <div className="space-y-4">
           <AuthInfo>
             If an account exists for <strong>{email}</strong>, a password
-            reset link has been sent. (In this example app the link is
-            printed to the backend&apos;s terminal instead of emailed.)
+            reset link has been sent. (Until email is configured, the link
+            is printed to the backend&apos;s terminal instead.)
           </AuthInfo>
         </div>
       ) : (

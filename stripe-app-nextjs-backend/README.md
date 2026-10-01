@@ -84,11 +84,23 @@ Or initialize Stripe Projects inside a clone of this directory:
 
 ```bash
 npm install
-stripe projects init
+stripe projects init --yes --mode manual --skip-skills
 stripe projects add vercel/project
 ```
 
 Both write the Vercel credentials to `.env` (`stripe projects env --pull` refreshes it).
+
+About the `init` flags:
+
+- `--yes` initializes in this folder. Without it, `init` stops with
+  `Current directory is not empty` (`DIRECTORY_SELECTION_REQUIRED`). Don't
+  use `--name` instead: that creates an empty subfolder, and
+  `npm run deploy` reads `.env` from this one.
+- `--mode manual` only sets up the project; `guided` and `template` scaffold
+  a starter app.
+- `--skip-skills` stops `init` from writing `AGENTS.md`, `CLAUDE.md`,
+  `.claude/` and `.agents/`, which would overwrite this folder's
+  `AGENTS.md`. Drop it if you want those files, but commit first.
 
 ### 2. Connect Supabase and fill in the rest
 

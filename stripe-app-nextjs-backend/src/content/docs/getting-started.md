@@ -27,9 +27,13 @@ Or, from a clone of this repo, initialize Stripe Projects in place:
 ```bash
 cd stripe-app-nextjs-backend
 npm install
-stripe projects init
+stripe projects init --yes --mode manual --skip-skills
 stripe projects add vercel/project
 ```
+
+`--yes` initializes in this non-empty folder (without it, `init` stops with
+`Current directory is not empty`), `--mode manual` skips the starter app,
+and `--skip-skills` keeps `init` from overwriting `AGENTS.md`.
 
 Either way, the Vercel credentials land in `.env`.
 {% /step %}

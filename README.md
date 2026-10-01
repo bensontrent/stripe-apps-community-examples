@@ -191,12 +191,14 @@ git clone --recurse-submodules https://github.com/bensontrent/stripe-apps-commun
 cd stripe-apps-community-examples
 npm install                          # installs both projects
 cd stripe-app-nextjs-backend
-stripe projects init                 # creates the Stripe project for this checkout
+stripe projects init --yes --mode manual --skip-skills   # creates the Stripe project for this checkout
 stripe projects add vercel/project   # hosting, credentials → .env
 cd ..
 npm run setup                        # connect Supabase, secrets, Stripe test key, database tables
 npm run dev                          # backend + Stripe App preview side by side
 ```
+
+The `init` flags matter in a clone: without `--yes` it stops with `Current directory is not empty`, `--mode manual` keeps it from scaffolding a starter app, and `--skip-skills` keeps it from overwriting the backend's `AGENTS.md`. See [the backend README](stripe-app-nextjs-backend/README.md) for details.
 
 `npm run dev` starts the Next.js backend (<http://localhost:3006>) and the Stripe App preview (`stripe apps start`, which opens the Stripe Dashboard). Run them individually with `npm run dev:backend` and `npm run dev:app`.
 

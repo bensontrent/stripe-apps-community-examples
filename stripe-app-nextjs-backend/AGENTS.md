@@ -15,7 +15,8 @@ wiring that already works.
    Dashboard are verified) and `ARCHITECTURE.md` (tables, flows).
 2. Look at `src/proxy.ts` (auth router), `src/lib/stripe.ts` (which Stripe
    credentials exist and why), `src/lib/env.ts` (how Stripe Projects' Supabase
-   variable names map onto the ones the code reads) and `setup.sql` (the schema).
+   variable names map onto the ones the code reads) and `setup.sql` plus
+   `migrations/` (the schema).
 3. Check setup state with `npm run setup` (idempotent; `--non-interactive`
    when you have no terminal) or the checklist on `http://localhost:3006`
    under `npm run dev`.
@@ -51,17 +52,26 @@ wiring that already works.
 
 - Keep `src/proxy.ts` stripping `x-auth-type` / `x-stripe-verified` from
   incoming requests before setting them — routes trust those headers.
-- Schema changes go in `setup.sql` (fresh installs) **plus** matching
-  `ALTER TABLE` statements for databases that already hold data. There is no
-  migrations system.
+- Schema changes are new timestamped `.sql` files in `migrations/` (rules in
+  `migrations/README.md`), applied once each by `npm run db:setup`. Don't edit
+  `setup.sql` (the baseline schema) or a migration that has already been
+  applied anywhere.
 - Better Auth's table/column mapping lives in `src/lib/auth.ts`; keep it in
   sync with the four auth tables in `setup.sql`.
-- `setup.sql` enables Row Level Security on every table with no policies. The
+- Every table has Row Level Security enabled with no policies (`setup.sql`
+  does it for the baseline; a migration must do it for each table it adds). The
   backend uses the secret/service-role key, which bypasses RLS; never ship
   that key to the browser.
 - Keep the `/api/stripe-app/*` signed-request routes and the login handshake
   (`/stripe`, `/api/stripe-app/{session,verify,userinfo}`) working — the
   companion Stripe App depends on them.
+- Stripe webhooks are the two Pages Router routes in `src/pages/api/webhooks/`
+  (`app.ts`: the accounts the app is installed in; `billing.ts`: the account
+  that charges for it). Keep `bodyParser: false` and verify the signature
+  against the raw body before doing anything else. Webhooks arrive at least
+  once: keep the install/uninstall handlers in `src/lib/app-installs.ts`
+  idempotent, and never delete a `stripe_accounts` row at uninstall — settings
+  and the free trial hang off it.
 - The paywall is enforced on the backend: every route that does paid work
   calls `recordFeatureUse()` (`src/lib/paywall.ts`) before the work and
   answers 402 when it says no. Hiding UI in the Stripe App is not a gate.

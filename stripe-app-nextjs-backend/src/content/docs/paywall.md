@@ -292,7 +292,7 @@ table. It runs from three places, so the table is right even when one is
 missing:
 
 1. **The webhook** — `customer.subscription.created`, `.updated` and
-   `.deleted` on `/api/stripe/webhook?mode=test&type=billing`
+   `.deleted` on `/api/webhooks/billing?mode=test`
    (`mode=live` in production). This is what catches renewals, failed
    payments and cancellations nobody is watching.
 2. **Every load of `/billing`** — so the page is right the moment the user
@@ -346,8 +346,8 @@ data, so you can see what your users will see without waiting 30 days.
   starts at install): change `resolvePaywall()` in **both** copies of
   `src/types/paywall.ts` and its tests. Nothing else encodes the policy.
 - **Extending one account's trial:** add a nullable `trial_extended_until`
-  column to `account_settings` (with its `ALTER TABLE … ADD COLUMN IF NOT
-  EXISTS` in `setup.sql`), pass it through `StoredTrial`, and prefer it over
+  column to `account_settings` (an `ALTER TABLE … ADD COLUMN` in a new
+  `migrations/` file), pass it through `StoredTrial`, and prefer it over
   the computed expiry in `describeTrial()`.
 - **Remove the dev reset:** delete the `DELETE` handler in
   `paywall/trial/route.ts` and `resetTrial()` before you ship.

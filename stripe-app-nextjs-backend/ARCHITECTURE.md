@@ -29,7 +29,7 @@ This backend serves dual purposes:
 
 - **PostgreSQL**: Relational database (via Supabase)
 - **supabase-js**: Query client used by the API routes (service-role key, server-side only)
-- **setup.sql**: Single source of truth for the schema — one file creates every table
+- **setup.sql + migrations/**: The schema — `setup.sql` is the baseline, each later change is one `.sql` file in `migrations/`, and `npm run db:setup` applies both
 - **Better Auth** connects directly over `DATABASE_URL` (a plain `pg` Pool) to manage its own tables
 
 ### Payment Processing
@@ -78,7 +78,7 @@ Database                   queries user data
 
 **Merchant side (connected Stripe accounts the app is installed into):**
 
-- `stripe_accounts`: One row per Stripe account — the `acct_...` id is the primary key (Stripe ids are unique and immutable, so no surrogate uuid). Carries install state as two nullable columns: `live_installation_id` / `test_installation_id`, where NULL means "not installed in that mode". A general sandbox has its own `acct_...` id, so it is simply another row
+- `stripe_accounts`: One row per Stripe account — the `acct_...` id is the primary key (Stripe ids are unique and immutable, so no surrogate uuid). Carries install state as two nullable columns: `live_installation_id` / `test_installation_id`, where NULL means "not installed in that mode". A general sandbox has its own `acct_...` id, so it is simply another row. The app webhook keeps the row current (`src/lib/app-installs.ts`): at install it stores the account's `name` and contact `email` and writes the install event's id into the mode's column; at uninstall it sets the column back to NULL. The row itself is never deleted, because settings and the free trial hang off it
 - `memberships`: User <-> Stripe account many-to-many (users can belong to multiple Stripe accounts, and Stripe accounts have multiple users). Data about the relationship lives here: the user's `role` in that account (owner/admin/member; the first registrant becomes owner). Composite primary key (stripe_account_id, user_id)
 
 **App settings (the `/api/stripe-app/settings` route; docs at `/docs/app-settings`):**
@@ -115,7 +115,8 @@ applies in live mode. Roles and login state are mode-independent.
 **Public Routes:**
 
 - `/api/auth/*`: Authentication endpoints (Better Auth managed)
-- `/api/stripe/webhook`: Stripe event receiver (signature verified)
+- `/api/webhooks/app`: Stripe events from the accounts the app is installed in, and from your own account (signature verified)
+- `/api/webhooks/billing`: Stripe events from the account that charges for the app (signature verified)
 
 **Protected Routes:**
 
@@ -125,25 +126,36 @@ applies in live mode. Roles and login state are mode-independent.
 
 ### 4. Webhook Processing
 
+There are two webhook routes, because a Stripe App listens to two different
+Stripe accounts for two different reasons:
+
 ```
-Stripe -> Webhook Endpoint -> Signature Verification
-                                       |
-                                       v
-                                  Event Router
-                                       |
-         +-----------------------------+-----------------------------+
-         v                             v                             v
-  Customer Events            Subscription Events               Other Events
-         |                             |                             |
-         v                             v                             v
-    Log/Process                    Update DB                    Log/Process
+Accounts that installed the app          The account that charges for the app
+(and your own account)                   (the "billing" account)
+            |                                          |
+            v                                          v
+   /api/webhooks/app                         /api/webhooks/billing
+   ?mode=…&type=connected                    ?mode=…
+          |managed_sandbox|account
+            |                                          |
+            +------------> Signature verification <----+
+            |                                          |
+            v                                          v
+  account.application.authorized          customer.subscription.created
+    -> stripe_accounts + welcome email    customer.subscription.updated
+  account.application.deauthorized        customer.subscription.deleted
+    -> uninstall + goodbye email            -> subscriptions (the paywall
+  customer.* (logging stub)                    reads this table)
 ```
 
-Each webhook endpoint is configured with query string params (e.g.
-`/api/stripe/webhook?mode=live&type=connected`) so the handler can pick the
-right Stripe client and signing secret per environment. Subscription events
-are upserted into `subscriptions` (publisher-side billing); the
-customer event handler is currently a logging stub.
+Both are Pages Router API routes (`src/pages/api/webhooks/`) with the body
+parser switched off, so the signature is verified against the raw bytes
+Stripe sent. Each endpoint registered in Stripe carries query string params
+(e.g. `/api/webhooks/app?mode=live&type=connected`) that select the signing
+secret; the mode of the event's *data* comes from `event.livemode`, because
+a live connected endpoint also receives test-mode events. Install and
+uninstall handling lives in `src/lib/app-installs.ts`, the two email
+templates in `src/lib/email-templates.ts`. Docs: `/docs/stripe-webhooks`.
 
 ## Security Considerations
 
@@ -185,9 +197,9 @@ customer event handler is currently a logging stub.
 ### Stripe Webhook Flow
 
 ```
-1. Event occurs in Stripe (e.g., subscription created)
-2. Stripe sends webhook to /api/stripe/webhook
-3. Signature verified
+1. Event occurs in the billing account (e.g., subscription created)
+2. Stripe sends webhook to /api/webhooks/billing?mode=…
+3. Signature verified against the raw body
 4. Event type routed to handler
 5. Database updated with new subscription data (subscriptions)
 6. Response sent to Stripe (200 OK)
@@ -196,14 +208,20 @@ customer event handler is currently a logging stub.
 ### Stripe App Installation Flow
 
 ```
-1. User installs app in Stripe Dashboard
-2. Stripe redirects to your app with installation details
-3. User authenticates (if not already)
-4. POST /api/protected/stripe-app
-5. Stripe account (with the mode's installation id) and the user's
-   membership upserted (stripe_accounts, memberships)
-6. User sees installation in account page
+1. A Stripe account installs the app from the Marketplace
+2. Stripe sends account.application.authorized to
+   /api/webhooks/app?mode=…&type=connected (event.account = the installer)
+3. The account's name and contact email are read from Stripe and stored
+   (stripe_accounts); the mode's installation column is set, only if it
+   wasn't already
+4. First install of the account: the welcome email is sent
+5. On uninstall, account.application.deauthorized clears the column, logs
+   the account's users out of the app (stripe_app_sessions) and sends the
+   goodbye email to the address stored in step 3
 ```
+
+Users join the account later, through the Stripe App login flow below
+(which creates their `memberships` row).
 
 ### Stripe App Login Flow (inside the dashboard)
 
@@ -266,8 +284,8 @@ socialProviders: {
 
 ### Adding Custom User Fields
 
-1. Add the column to the `users` table in `setup.sql` (for fresh installs)
-2. Run the matching `ALTER TABLE users ADD COLUMN ...` against your existing database (Supabase SQL editor)
+1. Add a migration with the `ALTER TABLE "users" ADD COLUMN ...` (a new file in `migrations/`, see its README)
+2. Run `npm run db:setup` to apply it
 3. If Better Auth should manage the field, declare it under `user.additionalFields` in `src/lib/auth.ts`
 
 ### Adding New API Endpoints

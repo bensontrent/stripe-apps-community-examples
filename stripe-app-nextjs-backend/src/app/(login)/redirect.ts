@@ -13,7 +13,7 @@ const DEFAULT_REDIRECT = '/account';
  * crafted link can't bounce a fresh login to another origin.
  */
 export function useSafeRedirect(): string {
-  const redirect = useSearchParams().get('redirect');
+  const redirect = useSearchParams()?.get('redirect') ?? null;
   return redirect && redirect.startsWith('/') && !redirect.startsWith('//')
     ? redirect
     : DEFAULT_REDIRECT;

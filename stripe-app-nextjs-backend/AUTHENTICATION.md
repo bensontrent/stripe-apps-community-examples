@@ -9,7 +9,7 @@ The proxy sorts requests into **auth flavors** — verification helpers live in
 
 | Flavor | How the caller authenticates | Verified | Example route |
 | --- | --- | --- | --- |
-| Public + webhook signature | `stripe-signature` header (webhook scheme) | At the route | [`/api/stripe/webhook`](src/app/api/stripe/webhook/route.ts) |
+| Public + webhook signature | `stripe-signature` header (webhook scheme) | At the route | [`/api/webhooks/app`](src/pages/api/webhooks/app.ts), [`/api/webhooks/billing`](src/pages/api/webhooks/billing.ts) |
 | Public + JWT in URL | `?token=<jwt>&account=<acct_...>` query params | At the route | [`/api/public/download`](src/app/api/public/download/route.ts) |
 | Stripe App signature | `stripe-signature` header from `fetchStripeSignature()` | In the proxy | [`/api/stripe-app/me`](src/app/api/stripe-app/me/route.ts) |
 | Bearer token | `Authorization: Bearer <key>` vs `BEARER_TOKEN_KEYS` / `CRON_SECRET` | In the proxy | [`/api/cron`](src/app/api/cron/route.ts) |
@@ -28,8 +28,8 @@ route handlers can trust them.
 Routes listed in `PUBLIC_ROUTES` in `src/proxy.ts` bypass the proxy checks
 entirely. They are either genuinely public or verify credentials themselves:
 
-- **Stripe webhooks** — `/api/stripe/webhook` verifies the webhook signature
-  with `stripe.webhooks.constructEvent()` inside the handler.
+- **Stripe webhooks** — `/api/webhooks/app` and `/api/webhooks/billing` verify the webhook signature
+  with `Stripe.webhooks.constructEvent()` inside the handler.
 - **JWT in the URL** — `/api/public/*` routes verify a short-lived token from
   the query string with [`src/lib/url-token.ts`](src/lib/url-token.ts).
   Useful for links that can't carry headers or cookies (downloads opened in

@@ -30,7 +30,7 @@ export default function StripeLoginPage() {
 
 function StripeLogin() {
   const { data: session, isPending } = useSession();
-  const state = useSearchParams().get('state');
+  const state = useSearchParams()?.get('state') ?? null;
   const router = useRouter();
 
   const [status, setStatus] = useState<'saving' | 'done' | 'error'>('saving');

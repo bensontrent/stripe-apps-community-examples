@@ -10,8 +10,9 @@
 //
 //   ┌─ OPTIONS preflight ────────► 204 + CORS headers, no auth
 //   ├─ PUBLIC_ROUTES ────────────► pass through; the ROUTE verifies:
-//   │                                • /api/stripe/webhook — Stripe webhook
-//   │                                  signature (constructEvent)
+//   │                                • /api/webhooks/* — Stripe webhook
+//   │                                  signature (constructEvent); the two
+//   │                                  routes are in src/pages/api/webhooks
 //   │                                • /api/public/* — JWT in the URL query
 //   │                                  (see src/lib/url-token.ts)
 //   │                                • /api/auth/* — Better Auth's own
@@ -63,7 +64,7 @@ const PUBLIC_ROUTES = [
   '/stripe-logout', // Stripe App logout landing page
   '/end-session', // generic sign-out page
   '/api/auth', // Better Auth handles its own auth (cookies, CSRF)
-  '/api/stripe/webhook', // route verifies the Stripe webhook signature
+  '/api/webhooks', // routes verify the Stripe webhook signature (app + billing)
   '/api/public', // route verifies a JWT passed in the URL query
 ];
 

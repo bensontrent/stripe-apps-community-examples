@@ -56,6 +56,8 @@ declare global {
       STRIPE_WEBHOOK_SECRET_MANAGED_SANDBOX_CONNECTED: string;
       STRIPE_WEBHOOK_SECRET_LIVE_ACCOUNT?: string;
       STRIPE_WEBHOOK_SECRET_TEST_ACCOUNT?: string;
+      /** Your own acct_… id — what `type=account` webhook events are about. */
+      STRIPE_APP_ACCOUNT_ID?: string;
       STRIPE_BILLING_SECRET_KEY_LIVE?: string;
       STRIPE_BILLING_SECRET_KEY_TEST?: string;
       STRIPE_BILLING_WEBHOOK_SECRET_LIVE?: string;

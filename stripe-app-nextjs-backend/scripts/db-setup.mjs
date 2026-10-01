@@ -1,11 +1,16 @@
-// scripts/db-setup.mjs — creates every table the backend expects by running
-// setup.sql against the database.
+// scripts/db-setup.mjs — creates every table the backend expects: applies
+// setup.sql (the baseline schema), then every file in migrations/ that this
+// database hasn't had yet.
 //
-//   npm run db:setup              apply setup.sql (safe to re-run: creates
-//                                 what's missing, upgrades what's old, never
-//                                 touches data)
-//   npm run db:setup -- --print   print the (schema-qualified) SQL instead —
-//                                 paste it into the Supabase SQL editor
+//   npm run db:setup              apply setup.sql and the pending migrations
+//                                 (safe to re-run: setup.sql is idempotent
+//                                 and each migration runs exactly once)
+//   npm run db:setup -- --print   print the (schema-qualified) SQL a fresh
+//                                 database needs instead — paste it into the
+//                                 Supabase SQL editor
+//
+// Schema changes are new files in migrations/ (see migrations/README.md);
+// setup.sql is not edited any more.
 //
 // Where the connection string comes from (first match wins, see env.mjs):
 //   DATABASE_URL           your own Supabase project, set in .env.local by
@@ -23,16 +28,36 @@
 //
 // `npm run setup` calls ensureTables() from here, so you rarely need to run
 // this directly.
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { isConfigured, loadEnv } from './env.mjs';
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const migrationsDir = join(root, 'migrations');
 
 export function isValidSchemaName(schema) {
   return /^[a-z_][a-z0-9_]*$/.test(schema);
+}
+
+/**
+ * The .sql files in migrations/, oldest first. The UTC timestamp prefix is
+ * what orders them, so a file without one is an error rather than a file
+ * that silently runs out of order (or never).
+ */
+export function listMigrations() {
+  if (!existsSync(migrationsDir)) return [];
+  const files = readdirSync(migrationsDir)
+    .filter((file) => file.endsWith('.sql'))
+    .sort();
+  const misnamed = files.find((file) => !/^\d{14}_[a-z0-9_]+\.sql$/.test(file));
+  if (misnamed) {
+    throw new Error(
+      `migrations/${misnamed} is not named YYYYMMDDHHMMSS_description.sql (lowercase letters, digits and _ in the description).`,
+    );
+  }
+  return files;
 }
 
 /** setup.sql, wrapped in the CREATE SCHEMA / GRANT statements a dedicated schema needs. */
@@ -59,13 +84,41 @@ export function buildSql(schema) {
 }
 
 /**
- * Apply setup.sql. Every statement in it is idempotent, so this is safe to
- * run on an empty database (creates everything) and on an existing one
- * (adds what's new, runs the "Upgrades" section, leaves data alone).
- * Resolves to 'created' when the tables didn't exist before, 'updated'
- * otherwise; throws on connection/SQL errors.
+ * What `--print` emits: everything a FRESH database needs — buildSql() plus
+ * every migration, each recorded in applied_migrations so a later
+ * `npm run db:setup` doesn't run it again.
+ */
+export function buildPrintSql(schema) {
+  const migrations = listMigrations();
+  if (migrations.length === 0) return buildSql(schema);
+  return [
+    '-- For a FRESH database: setup.sql followed by every file in migrations/.',
+    '-- On a database that already has the tables, run `npm run db:setup`',
+    '-- instead (it applies only the migrations that database has not had yet);',
+    '-- pasting this again would run every migration a second time.',
+    '',
+    buildSql(schema),
+    ...migrations.flatMap((name) => [
+      `-- migrations/${name}`,
+      readFileSync(join(migrationsDir, name), 'utf8'),
+      `INSERT INTO "applied_migrations" ("name") VALUES ('${name}') ON CONFLICT DO NOTHING;`,
+      '',
+    ]),
+  ].join('\n');
+}
+
+/**
+ * Apply setup.sql, then the migrations this database hasn't had yet.
+ * setup.sql is idempotent, so this is safe to run on an empty database
+ * (creates everything) and on an existing one (leaves data alone); each
+ * migration runs once, in its own transaction, and is recorded in
+ * applied_migrations. Resolves to `{ state, migrations }`: state is 'created'
+ * when the tables didn't exist before and 'updated' otherwise, migrations
+ * lists the files applied by this run. Throws on connection/SQL errors — a
+ * failed migration is rolled back and the ones after it are not attempted.
  */
 export async function ensureTables({ connectionString, schema }) {
+  const migrations = listMigrations();
   const client = new pg.Client({ connectionString, connectionTimeoutMillis: 10_000 });
   await client.connect();
   try {
@@ -75,9 +128,29 @@ export async function ensureTables({ connectionString, schema }) {
     );
     const existed = rows.length > 0;
     // One multi-statement query runs in a single implicit transaction:
-    // either every statement applies, or none do.
+    // either every statement applies, or none do. Its SET search_path (for a
+    // dedicated schema) stays in effect for the migrations below.
     await client.query(buildSql(schema));
-    return existed ? 'updated' : 'created';
+
+    const done = await client.query('select "name" from "applied_migrations"');
+    const applied = new Set(done.rows.map((row) => row.name));
+    const ran = [];
+    for (const name of migrations) {
+      if (applied.has(name)) continue;
+      await client.query('BEGIN');
+      try {
+        // Claim the name first: a second db:setup running at the same moment
+        // waits on this row and then fails, instead of applying the file twice.
+        await client.query('insert into "applied_migrations" ("name") values ($1)', [name]);
+        await client.query(readFileSync(join(migrationsDir, name), 'utf8'));
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw new Error(`migrations/${name}: ${err.message}`);
+      }
+      ran.push(name);
+    }
+    return { state: existed ? 'updated' : 'created', migrations: ran };
   } finally {
     await client.end();
   }
@@ -96,7 +169,12 @@ async function main() {
   }
 
   if (printOnly) {
-    console.log(buildSql(schema));
+    try {
+      console.log(buildPrintSql(schema));
+    } catch (err) {
+      console.error(err.message);
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -109,12 +187,20 @@ async function main() {
   }
 
   try {
-    const result = await ensureTables({ connectionString: process.env.DATABASE_URL, schema });
+    const { state, migrations } = await ensureTables({
+      connectionString: process.env.DATABASE_URL,
+      schema,
+    });
     const from = sources.DATABASE_URL === 'DATABASE_URL' ? '' : ` (via ${sources.DATABASE_URL})`;
     console.log(
-      result === 'created'
+      state === 'created'
         ? `setup.sql applied — all tables created in schema "${schema}"${from}.`
         : `setup.sql applied to the existing tables in schema "${schema}"${from} — anything new was added, data untouched.`,
+    );
+    console.log(
+      migrations.length > 0
+        ? `Migrations applied: ${migrations.join(', ')}.`
+        : 'Migrations: nothing new to apply.',
     );
     if (schema !== 'public') {
       console.log(
@@ -122,7 +208,7 @@ async function main() {
       );
     }
   } catch (err) {
-    console.error(`Failed to apply setup.sql: ${err.message}`);
+    console.error(`Failed to set up the database: ${err.message}`);
     process.exitCode = 1;
   }
 }

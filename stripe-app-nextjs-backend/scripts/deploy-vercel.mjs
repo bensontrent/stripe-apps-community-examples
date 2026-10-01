@@ -307,9 +307,12 @@ Next, point the Stripe App at the deployed backend:
   • stripe-app/src/api/backend.ts   → BACKEND_BASE = '${backend}'
   • stripe-app/stripe-app.json      → connect-src: '${backend}/api/'
 And create production webhook endpoints (Stripe Workbench → Webhooks):
-  • ${backend}/api/stripe/webhook?mode=test&type=connected
-  • ${backend}/api/stripe/webhook?mode=live&type=connected
-then put each signing secret in the matching STRIPE_WEBHOOK_SECRET_* variable and redeploy.`);
+  • ${backend}/api/webhooks/app?mode=test&type=connected
+  • ${backend}/api/webhooks/app?mode=live&type=connected
+  • ${backend}/api/webhooks/billing?mode=test      (in the account that bills for the app)
+  • ${backend}/api/webhooks/billing?mode=live
+then put each signing secret in the matching STRIPE_WEBHOOK_SECRET_* /
+STRIPE_BILLING_WEBHOOK_SECRET_* variable and redeploy.`);
   }
 }
 

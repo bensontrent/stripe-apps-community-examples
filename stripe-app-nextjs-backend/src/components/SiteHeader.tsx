@@ -25,7 +25,7 @@ function NavLink({
   onNavigate,
   className = '',
 }: (typeof NAV_LINKS)[number] & { onNavigate?: () => void; className?: string }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const active = exact ? pathname === href : pathname.startsWith(href);
   return (
     <Link

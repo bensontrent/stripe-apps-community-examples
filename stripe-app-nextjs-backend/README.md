@@ -55,12 +55,13 @@ stripe-app-nextjs-backend/
 │   └── proxy.ts                   # Auth proxy (Next.js 16 middleware)
 ├── scripts/
 │   ├── setup.mjs                  # `npm run setup` — Supabase, secrets, Stripe key, tables (idempotent)
-│   ├── db-setup.mjs               # `npm run db:setup` — applies setup.sql
+│   ├── db-setup.mjs               # `npm run db:setup` — applies setup.sql + new migrations
 │   ├── deploy-vercel.mjs          # `npm run deploy` — env sync + production deployment
 │   └── env.mjs                    # Shared env loading for the scripts
 ├── projects-template.yaml         # Stripe Projects build-template manifest (default variant)
 ├── projects-template.supabase-vercel.yaml  # Variant that also provisions Supabase
-├── setup.sql                      # Database schema (single source of truth)
+├── setup.sql                      # Database schema: the baseline
+├── migrations/                    # Database schema: every change since (one .sql file each)
 ├── .env.example                   # Every variable, documented
 └── package.json
 ```
@@ -126,7 +127,7 @@ What is left for you to do by hand, and when:
 
 | Value | When | How |
 |---|---|---|
-| `STRIPE_WEBHOOK_SECRET_TEST_CONNECTED` | Before testing webhooks locally | `stripe listen --forward-to localhost:3006/api/stripe/webhook` prints it |
+| `STRIPE_WEBHOOK_SECRET_TEST_CONNECTED` | Before testing webhooks locally | The `stripe listen` command under [Stripe webhooks (local)](#stripe-webhooks-local) prints it |
 | `STRIPE_APP_SIGNING_SECRET` | After the first `stripe apps upload` of the companion app | Copy the "Signing secret" from your app's page in the Developers Dashboard into `.env.local` |
 | Supabase **secret key** | Only with the Stripe Projects route, if the checklist says it's missing | `stripe projects open supabase` → Project Settings → API Keys, then `stripe projects variables set supabase-secret-key --env-key SUPABASE_SECRET_KEY` (or `.env.local`) |
 | *Exposed schemas* | Only with a dedicated `SUPABASE_SCHEMA` | Supabase dashboard → Settings → API — the checklist verifies it |
@@ -158,11 +159,18 @@ Every variable is documented in [`.env.example`](.env.example).
 
 ### Stripe webhooks (local)
 
+There are two webhook routes: `/api/webhooks/app` (events from the accounts
+your app is installed in — installs, uninstalls, …) and `/api/webhooks/billing`
+(subscriptions in the account that charges for the app). One CLI session
+forwards to both:
+
 ```bash
-stripe listen --forward-to localhost:3006/api/stripe/webhook
+stripe listen --forward-connect-to "localhost:3006/api/webhooks/app?mode=test&type=connected" --forward-to "localhost:3006/api/webhooks/billing?mode=test"
 ```
 
 Copy the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET_TEST_CONNECTED` in `.env.local`.
+The full list of endpoints to register in production is in
+[`/docs/stripe-webhooks`](src/content/docs/stripe-webhooks.md).
 
 ## Database Schema
 
@@ -177,7 +185,7 @@ Better Auth (sign-in):
 
 Merchant side (connected Stripe accounts):
 
-- **stripe_accounts**: One row per `acct_...` id (the Stripe id is the primary key), with install state as two nullable columns (`live_installation_id` / `test_installation_id` — NULL means not installed in that mode)
+- **stripe_accounts**: One row per `acct_...` id (the Stripe id is the primary key), with install state as two nullable columns (`live_installation_id` / `test_installation_id` — NULL means not installed in that mode) and the account's contact `email`. Kept current by the app webhook on install and uninstall
 - **memberships**: User ↔ Stripe account many-to-many, carrying the user's `role` in that account
 - **stripe_app_sessions**: Which app user is logged in inside the Stripe Dashboard, per dashboard user and Stripe account
 
@@ -223,7 +231,8 @@ Publisher side (monetization):
 
 ### Webhooks (route-level auth)
 
-- `POST /api/stripe/webhook` - Stripe webhook handler
+- `POST /api/webhooks/app` - Events from the accounts the app is installed in (installs, uninstalls, …) and from your own account
+- `POST /api/webhooks/billing` - Subscription events from the account that charges for the app
 
 See [AUTHENTICATION.md](AUTHENTICATION.md) for how each flavor works and how
 the proxy routes requests between them.
@@ -340,7 +349,7 @@ npm run db:setup
 npm run db:setup -- --print
 ```
 
-`setup.sql` is idempotent: every statement uses `IF NOT EXISTS` / `OR REPLACE`, and an "Upgrades" section at the end carries the `ALTER TABLE` steps that bring older databases forward. To change the schema, edit the `CREATE` statements (fresh installs) *and* add the matching idempotent `ALTER TABLE` to the Upgrades section (existing databases), then everyone re-runs the file. Supabase's Table Editor doubles as a database GUI.
+`npm run db:setup` applies [`setup.sql`](setup.sql) — the baseline schema, idempotent (`IF NOT EXISTS` / `OR REPLACE`) — and then every file in [`migrations/`](migrations/) the database hasn't had yet, recording each in the `applied_migrations` table. **To change the schema, add a new `YYYYMMDDHHMMSS_description.sql` file to `migrations/`** (rules in [migrations/README.md](migrations/README.md)) and run the command again; fresh installs and databases that already hold data get the change the same way. Don't edit `setup.sql`. Supabase's Table Editor doubles as a database GUI.
 
 ## Security Considerations
 

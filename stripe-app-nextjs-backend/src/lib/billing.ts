@@ -20,7 +20,7 @@
 //   Sync            syncSubscription() copies a Stripe subscription into the
 //                   `subscriptions` table. It runs from three places, so the
 //                   table is right even when one of them is missing:
-//                     1. the webhook (/api/stripe/webhook?type=billing)
+//                     1. the webhook (/api/webhooks/billing)
 //                     2. every load of /billing (syncCustomerSubscriptions)
 //                     3. "Recheck my plan" in the Stripe App
 //

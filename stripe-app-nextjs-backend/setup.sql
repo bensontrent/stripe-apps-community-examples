@@ -1,5 +1,6 @@
--- setup.sql — creates every table and function the backend expects.
--- This file is the single source of truth for the database schema.
+-- setup.sql — the baseline schema: every table and function the backend
+-- expected when migrations/ was introduced (2026-09-30). The current schema
+-- is this file plus every file in migrations/, applied in filename order.
 --
 -- Run it against your Supabase project, either way:
 --   • paste it into the Supabase SQL editor (Dashboard → SQL Editor → Run), or
@@ -19,11 +20,10 @@
 -- prefer the SQL editor). Then add the schema to "Exposed schemas" in the
 -- Supabase dashboard (Settings → API).
 --
--- To change the schema later: edit the CREATE statements here (that is what
--- fresh installs get) AND add the matching idempotent ALTER TABLE to the
--- "Upgrades" section at the end (that is what existing databases get) —
--- CREATE TABLE IF NOT EXISTS never touches a table that already exists.
--- Then everyone just re-runs this file.
+-- To change the schema: DON'T edit this file. Add a new file to migrations/
+-- (see migrations/README.md) and run `npm run db:setup`, which applies this
+-- file and then every migration the database hasn't seen yet. Databases that
+-- already hold data get the change the same way fresh installs do.
 --
 -- The shape, in three parts:
 --
@@ -385,6 +385,16 @@ LANGUAGE sql AS $$
 $$;
 
 -- ============================================================================
+--  Migrations — which files from migrations/ this database has had applied.
+--  Written by `npm run db:setup`; nothing in the app reads it.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS "applied_migrations" (
+	"name" text PRIMARY KEY,
+	"applied_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- ============================================================================
 --  Row Level Security
 -- ============================================================================
 
@@ -402,11 +412,14 @@ ALTER TABLE "account_settings" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "user_settings" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "stripe_app_sessions" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "subscriptions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "applied_migrations" ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
 --  Upgrades — bring a database created from an older version of this file
---  up to date. Every statement here must be idempotent (IF EXISTS /
---  IF NOT EXISTS) so the whole file stays safe to re-run. Newest last.
+--  up to the baseline. Every statement here is idempotent (IF EXISTS /
+--  IF NOT EXISTS) so the whole file stays safe to re-run.
+--
+--  Closed since 2026-09-30: new changes go in migrations/, not here.
 -- ============================================================================
 
 -- 2026-09-21: app settings moved from jsonb columns on users,

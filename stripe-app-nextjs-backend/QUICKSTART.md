@@ -76,8 +76,9 @@ into the Supabase SQL editor).
 ### 3. Stripe Webhook Setup (Local Development)
 
 ```bash
-# Forward webhooks (keep this running in a separate terminal)
-stripe listen --forward-to localhost:3006/api/stripe/webhook
+# Forward webhooks (keep this running in a separate terminal):
+# connected-account events to the app webhook, your own account's to the billing webhook
+stripe listen --forward-connect-to "localhost:3006/api/webhooks/app?mode=test&type=connected" --forward-to "localhost:3006/api/webhooks/billing?mode=test"
 ```
 
 Copy the webhook signing secret that appears into `.env.local` as
@@ -133,7 +134,7 @@ Its `src/api/backend.ts` points at `http://localhost:3006` in development.
 
 - `/api/auth/*`: Authentication endpoints (Better Auth)
 - `/api/stripe-app/*`: Signed-request routes for the UI extension
-- `/api/stripe/webhook`: Stripe event handler
+- `/api/webhooks/app`, `/api/webhooks/billing`: Stripe event handlers (Pages Router, `src/pages/api/webhooks`)
 - `/api/protected/*`: Authenticated API routes
 
 ## Common Tasks
@@ -182,7 +183,7 @@ await supabase.from('users').insert({
 
 ### Handle Stripe Events
 
-Edit `src/app/api/stripe/webhook/route.ts` to add new event handlers:
+Edit `src/pages/api/webhooks/app.ts` (events from the accounts your app is installed in) or `src/pages/api/webhooks/billing.ts` (your own billing account) to add new event handlers:
 
 ```typescript
 switch (event.type) {

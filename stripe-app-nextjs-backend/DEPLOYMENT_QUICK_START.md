@@ -86,16 +86,26 @@ IPv6-only.
 Local `stripe listen` doesn't apply to the deployed app. In
 [Stripe Workbench → Webhooks](https://dashboard.stripe.com/webhooks), create
 endpoints pointing at your deployment, using the query params the handler
-reads (see `src/app/api/stripe/webhook/route.ts`):
+reads (see `src/pages/api/webhooks/app.ts` and `billing.ts`, and the full table in `/docs/stripe-webhooks`):
 
 ```text
-https://<your-project>.vercel.app/api/stripe/webhook?mode=test&type=connected
-https://<your-project>.vercel.app/api/stripe/webhook?mode=live&type=connected
+https://<your-project>.vercel.app/api/webhooks/app?mode=test&type=connected
+https://<your-project>.vercel.app/api/webhooks/app?mode=live&type=connected
+https://<your-project>.vercel.app/api/webhooks/billing?mode=test
+https://<your-project>.vercel.app/api/webhooks/billing?mode=live
 ```
 
+The two `app` endpoints listen to **connected accounts** (subscribe them to
+`account.application.authorized` and `account.application.deauthorized`,
+plus whatever your app works with). The two `billing` endpoints are created
+in the account that charges for your app and listen to **your account**
+(`customer.subscription.created`, `.updated`, `.deleted`).
+
 Copy each endpoint's signing secret into the matching variable
-(`STRIPE_WEBHOOK_SECRET_TEST_CONNECTED`, `STRIPE_WEBHOOK_SECRET_LIVE_CONNECTED`, …)
-in `.env.local`, then `npm run deploy` again to sync them.
+(`STRIPE_WEBHOOK_SECRET_TEST_CONNECTED`, `STRIPE_WEBHOOK_SECRET_LIVE_CONNECTED`,
+`STRIPE_BILLING_WEBHOOK_SECRET_TEST`, `STRIPE_BILLING_WEBHOOK_SECRET_LIVE`, …)
+in `.env.local`, then `npm run deploy` again to sync them. Set the Postmark
+variables too if you want the welcome and goodbye emails to go out.
 
 ## 5. Point the Stripe App at the backend
 

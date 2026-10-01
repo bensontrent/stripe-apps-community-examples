@@ -21,8 +21,8 @@ export default function ConfirmPage() {
 
 function ConfirmContent() {
   const params = useSearchParams();
-  const token = params.get('token');
-  const linkError = params.get('error');
+  const token = params?.get('token') ?? null;
+  const linkError = params?.get('error') ?? null;
 
   if (linkError) {
     return (

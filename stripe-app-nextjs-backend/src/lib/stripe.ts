@@ -54,10 +54,14 @@
 //
 // From a webhook handler:
 //   Configure each webhook endpoint with a distinct query string, e.g.:
-//     /api/webhooks/stripe?mode=live&type=connected
-//     /api/webhooks/stripe?mode=test&type=connected
-//     /api/webhooks/stripe?mode=test&type=managed_sandbox
-//   Then read the params off the incoming request.
+//     /api/webhooks/app?mode=live&type=connected
+//     /api/webhooks/app?mode=test&type=connected
+//     /api/webhooks/app?mode=test&type=managed_sandbox
+//     /api/webhooks/billing?mode=live
+//   Then read the params off the incoming request to pick the signing
+//   secret, and take the mode of the DATA from `event.livemode` (a live
+//   connected endpoint also receives test-mode events). The two handlers
+//   are src/pages/api/webhooks/app.ts and billing.ts.
 //
 // ============================================================================
 
@@ -332,25 +336,29 @@ export function isBillingAccountConfigured(): boolean {
 // ===========================================================================
 //
 //  --- In a webhook route handler -------------------------------------------
+//  (the real ones: src/pages/api/webhooks/app.ts and billing.ts)
 //
+//  import Stripe from "stripe";
 //  import { getStripeClient, getWebhookSecret } from "@/lib/stripe";
 //
 //  export default async function handler(req, res) {
 //    const mode = req.query.mode as string | undefined;
 //    const type = req.query.type as string | undefined;
 //
-//    const environment =
+//    const endpoint =
 //      type === "managed_sandbox" ? "managed_sandbox"
 //      : mode === "live" ? "live"
 //      : "test";
 //
-//    const stripe = getStripeClient(environment);
-//    const secret = getWebhookSecret(environment);
-//
-//    const event = stripe.webhooks.constructEvent(
+//    const event = Stripe.webhooks.constructEvent(
 //      rawBody,
 //      req.headers["stripe-signature"]!,
-//      secret,
+//      getWebhookSecret(endpoint),
+//    );
+//
+//    // The event's own mode decides which client acts on it.
+//    const stripe = getStripeClient(
+//      endpoint === "managed_sandbox" ? endpoint : event.livemode ? "live" : "test",
 //    );
 //    // ... handle event
 //  }

@@ -380,13 +380,14 @@ ${dim(`Adds missing values to ${path.relative(process.cwd(), envLocalPath) || en
     process.exitCode = 1;
   } else if (dryRun) {
     warn(`Would create the tables in schema "${schema}" (dry run).`);
-  } else if (!interactive || (await yesNo('Create or update the database tables now? (applies setup.sql; safe to re-run, keeps data)'))) {
+  } else if (!interactive || (await yesNo('Create or update the database tables now? (applies setup.sql and new migrations; safe to re-run, keeps data)'))) {
     try {
-      const state = await ensureTables({ connectionString: process.env.DATABASE_URL, schema });
+      const { state, migrations } = await ensureTables({ connectionString: process.env.DATABASE_URL, schema });
+      const ran = migrations.length > 0 ? ` + ${migrations.length} from migrations/` : '';
       ok(
         state === 'created'
-          ? `Database tables created in schema "${schema}" (setup.sql).`
-          : `Database tables in schema "${schema}" brought up to date (setup.sql).`,
+          ? `Database tables created in schema "${schema}" (setup.sql${ran}).`
+          : `Database tables in schema "${schema}" brought up to date (setup.sql${ran}).`,
       );
     } catch (err) {
       console.log(
@@ -423,7 +424,7 @@ ${dim(`Adds missing values to ${path.relative(process.cwd(), envLocalPath) || en
   if (!have('STRIPE_SECRET_KEY_TEST')) todo.push('Paste your Stripe test key into STRIPE_SECRET_KEY_TEST in .env.local');
   if (!have('STRIPE_WEBHOOK_SECRET_TEST_CONNECTED')) {
     todo.push(
-      'Local webhooks: `stripe listen --forward-to localhost:3006/api/stripe/webhook`\n' +
+      'Local webhooks: `stripe listen --forward-connect-to "localhost:3006/api/webhooks/app?mode=test&type=connected" --forward-to "localhost:3006/api/webhooks/billing?mode=test"`\n' +
         '    → copy the printed whsec_… into STRIPE_WEBHOOK_SECRET_TEST_CONNECTED in .env.local',
     );
   }

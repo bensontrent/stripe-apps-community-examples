@@ -86,7 +86,7 @@ function Badge({ tint, children }: { tint: string; children: React.ReactNode }) 
 
 /** The banner shown after returning from Stripe Checkout (?checkout=…). */
 function CheckoutResult() {
-  const result = useSearchParams().get('checkout');
+  const result = useSearchParams()?.get('checkout') ?? null;
   if (result === 'success') {
     return (
       <p role="status" className={`rounded-2xl px-5 py-4 text-sm ${BADGES.positive}`}>
@@ -224,7 +224,7 @@ function BillingPage() {
   }, []);
 
   // ?subscribe_to=<lookup key>: the plan chosen on the public /plans page.
-  const subscribeTo = useSearchParams().get('subscribe_to');
+  const subscribeTo = useSearchParams()?.get('subscribe_to') ?? null;
   const continued = useRef(false);
 
   useEffect(() => {

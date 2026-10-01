@@ -3,7 +3,8 @@
 // Email is optional: without POSTMARK_SERVER_API_TOKEN and
 // POSTMARK_FROM_EMAIL nothing is sent and sendEmail() reports
 // 'not-configured', so callers can fall back (src/lib/auth.ts prints the
-// password reset link to the terminal instead).
+// password reset link to the terminal instead; src/lib/app-installs.ts
+// skips the welcome / goodbye email and says so).
 //
 // POSTMARK_FROM_EMAIL must be a sender signature or domain you have verified
 // in Postmark. While a Postmark account is still in test mode it only

@@ -37,8 +37,9 @@ Please work in this order:
 1. Read first. Clone the example into a temporary folder outside my project and read
    README.md, AGENTS.md, stripe-app/README.md, and in stripe-app-nextjs-backend/:
    AGENTS.md (the rules for changing the backend), AUTHENTICATION.md, ARCHITECTURE.md,
-   setup.sql and the guides in src/content/docs/. The roadmap in README.md shows which
-   features have a working example and which don't yet.
+   setup.sql plus migrations/ (the database schema) and the guides in
+   src/content/docs/. The roadmap in README.md shows which features have a working
+   example and which don't yet.
 
 2. Interview me before writing any code. Ask a few questions at a time in plain
    language and wait for my answers. If I'm unsure, recommend an option and say why.
@@ -72,7 +73,9 @@ Please work in this order:
    - Build the UI only from @stripe/ui-extension-sdk components, and check
      https://docs.stripe.com/stripe-apps when unsure instead of guessing: plain HTML
      elements and CSS files aren't available inside the Dashboard.
-   - Database changes go in setup.sql.
+   - Database changes go in stripe-app-nextjs-backend/migrations/ as new timestamped
+     .sql files (rules in its README.md; npm run db:setup applies them). Don't edit
+     setup.sql: it is the example's baseline schema.
    - Use Stripe test mode only. Never ask me to paste secrets into this chat: when a
      step needs my credentials or an interactive terminal (stripe login, npm run
      setup, stripe apps upload, copying the signing secret), tell me the exact command
@@ -116,8 +119,8 @@ The Stripe Apps Developer meetup is now listed on the [Stripe Community website]
 - [x] Stripe Projects support
 - [x] Complex routing examples
 - [x] Full page app example
-- [ ] Connected webhooks
-- [ ] App user email notifications
+- [x] Connected webhooks — two endpoints, one for the accounts your app is installed in (connected, own account, managed sandbox) and one for the account that bills for it — [docs](stripe-app-nextjs-backend/src/content/docs/stripe-webhooks.md)
+- [x] App user email notifications — welcome email on install, "sorry to see you go" on uninstall ([templates](stripe-app-nextjs-backend/src/lib/email-templates.ts))
 - [x] App paywall — [docs](stripe-app-nextjs-backend/src/content/docs/paywall.md), demo at `/examples/paywall` in the app
 - [x] App monetization and user billing dashboard — a public price list at `/plans`, and plans, Stripe Checkout and the customer portal at `/billing` on the backend
 - [x] App trial strategies — per-account trial limited by days (`TRIAL_DAYS_LIMIT`), by usage (`TRIAL_COUNT_LIMIT`), or both; test mode is always free

@@ -22,7 +22,7 @@ Paths listed in `PUBLIC_ROUTES` bypass proxy authentication entirely. Each
 one is either genuinely public (like these docs at `/docs`) or authenticates
 **at the route level**:
 
-- `/api/stripe/webhook` — verifies the Stripe webhook signature
+- `/api/webhooks/app` and `/api/webhooks/billing` — verify the Stripe webhook signature
 - `/api/public/*` — verifies a short-lived JWT passed in the URL query
 - `/api/auth/*` — Better Auth handles its own cookies and CSRF
 

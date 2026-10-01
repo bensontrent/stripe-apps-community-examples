@@ -99,6 +99,10 @@ Roadmap items "App paywall", "App monetization and user billing dashboard" and "
 - **Known gap, documented in `/docs/paywall`:** the `stripe-mode` header is not covered by the signature. Harmless while the same value also selects the Stripe client; signing it via `fetchStripeSignature({ mode })` is the hardening.
 - **Docs:** `src/content/docs/paywall.md` (order 5; writing-docs moved to 6). `stripe-webhooks.md` gained a billing section and had its env var names corrected (`STRIPE_WEBHOOK_SECRET_*`).
 
+## Kickstart prompt (added 2026-09-30)
+
+The root README and `stripe-app/README.md` (the submodule's own repo) each have a section "Start your own app with an AI agent" with **the same prompt, word for word — change both or neither**: a copy-paste prompt for people who use this repo as source for their own app (read → interview → plan → build → verify → hand over). It names files and commands (`stripe-app-nextjs-backend/AGENTS.md` "Non-negotiables", `AUTHENTICATION.md`, `ARCHITECTURE.md`, `setup.sql`, `src/content/docs/`, `npm run setup`, `npm test` / `npm run typecheck` in the app), so **update the prompt when any of those are renamed or moved**. It tells the agent to copy from a clone of `main` rather than run `stripe projects build`, because the registry copy trails `main`. Not yet tried end to end with a fresh agent in an empty folder.
+
 ## Suggested next session tasks
 
 0. Paywall follow-ups: decide which Stripe account bills for this example (a dedicated sandbox via `STRIPE_BILLING_SECRET_KEY_TEST` rather than Parcelcraft), then pay one test-mode Checkout and open the portal; open `/examples/paywall` under `stripe apps start` with `PAYWALL_ENFORCE_IN_TEST_MODE=true`; point `getSignedIdentity` at the settings route too. The template manifests are still pinned to `1ce2e22`, so the registry copy does not contain the paywall until the next release (procedure in the header of `projects-template.yaml`).

@@ -16,6 +16,82 @@ You can also use this example as a **private app for a single company** (one Str
 
 > **🚧 Actively in development.** This repo is growing over time as new examples are added. See the roadmap below for what's done and what's coming.
 
+## 🤖 Start your own app with an AI agent
+
+This repo is written to be read by AI coding agents as much as by people: copy the prompt below into Claude Code, Cursor, Codex or any agent that can run commands, **in an empty folder**. The agent studies the example, asks what you want to build, proposes a plan, and only then builds your backend and Stripe App from the working code here. Already know what you're building? Add a sentence or two about it at the end.
+
+```text
+I want to build a Stripe App with its own backend, and I want you to start from a
+working example instead of from scratch:
+
+https://github.com/bensontrent/stripe-apps-community-examples
+
+It contains a Next.js backend (stripe-app-nextjs-backend/: Better Auth, Supabase
+Postgres, Stripe webhooks, signed requests from the app) and a Stripe App UI extension
+(stripe-app/, a git submodule of
+https://github.com/bensontrent/stripe-app-community-example, so clone with
+--recurse-submodules or that folder will be empty).
+
+Please work in this order:
+
+1. Read first. Clone the example into a temporary folder outside my project and read
+   README.md, AGENTS.md, stripe-app/README.md, and in stripe-app-nextjs-backend/:
+   AGENTS.md (the rules for changing the backend), AUTHENTICATION.md, ARCHITECTURE.md,
+   setup.sql and the guides in src/content/docs/. The roadmap in README.md shows which
+   features have a working example and which don't yet.
+
+2. Interview me before writing any code. Ask a few questions at a time in plain
+   language and wait for my answers. If I'm unsure, recommend an option and say why.
+   Find out:
+   - what the app does, who it's for, and what the first version must do to be useful
+   - whether it's for the Stripe App Marketplace (installed by many Stripe accounts)
+     or a private app for one company
+   - where it shows up in the Dashboard (full page, a drawer on customer, invoice or
+     payment pages, a settings view) and which Stripe data it reads or changes
+   - what the backend has to do: data to store, outside services to call, webhooks to
+     react to, scheduled jobs
+   - whether users need an account on my site, and whether I'll charge for the app
+     (free, free trial, subscription)
+   - the app's name, and what I already have set up (Stripe account, Stripe CLI,
+     Supabase, hosting)
+
+3. Propose a plan and wait for my go-ahead. List the features of the first version and
+   mark each one as kept from the example, adapted, or new. List what you'll remove,
+   the Stripe permissions the app will request, the database tables, and the steps
+   only I can do. Tell me plainly when something I asked for has no example to build
+   on, so I know it's new work and not proven code.
+
+4. Build it as a new project in this folder with its own git history (not a fork, no
+   submodule), keeping the example's two-folder layout. Copy the example's code and
+   adapt it: the authentication between the app and the backend and the per-account
+   data model are the hard part, and they already work.
+   - Follow the "Non-negotiables" in stripe-app-nextjs-backend/AGENTS.md.
+   - Give the app its own id and name in stripe-app.json (ids are unique across all of
+     Stripe), request only the permissions the features need, and remove the demo
+     pages, mock data and features I'm not using.
+   - Build the UI only from @stripe/ui-extension-sdk components, and check
+     https://docs.stripe.com/stripe-apps when unsure instead of guessing: plain HTML
+     elements and CSS files aren't available inside the Dashboard.
+   - Database changes go in setup.sql.
+   - Use Stripe test mode only. Never ask me to paste secrets into this chat: when a
+     step needs my credentials or an interactive terminal (stripe login, npm run
+     setup, stripe apps upload, copying the signing secret), tell me the exact command
+     and where to run it. Ask before anything that creates cloud resources or costs
+     money.
+
+5. Check your work: npm run build in the backend, npm test and npm run typecheck in
+   the app. Tell me what you verified and what you couldn't (anything that needs a
+   real Stripe Dashboard).
+
+6. Hand over: replace the example's README.md and AGENTS.md with ones that describe my
+   project, and give me a short checklist to get it running locally, upload the app
+   and deploy the backend.
+
+Start with step 1, then ask me your first questions.
+```
+
+The steps only you can do stay with you: logging in to Stripe, connecting your database (`npm run setup`) and the first `stripe apps upload`. See [Requirements](#requirements) for what to install first.
+
 ## 📅 Community meetup
 
 The Stripe Apps Developer meetup is now listed on the [Stripe Community website](https://www.stripecommunity.com/public/clubs/stripe-app-developers). This is not an official Stripe support channel — the goal is to help each other with real challenges that fall outside the scope of the Stripe docs. We post answers to questions raised in the community as code, right here in this repo.

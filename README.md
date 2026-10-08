@@ -99,12 +99,6 @@ The steps only you can do stay with you: logging in to Stripe, connecting your d
 
 The Stripe Apps Developer meetup is now listed on the [Stripe Community website](https://www.stripecommunity.com/public/clubs/stripe-app-developers). This is not an official Stripe support channel — the goal is to help each other with real challenges that fall outside the scope of the Stripe docs. We post answers to questions raised in the community as code, right here in this repo.
 
-**Upcoming meetups:**
-
-| Date | Time | Link |
-| --- | --- | --- |
-| Thurs, Oct 1 | 3:00 PM - 4:30 PM EDT | [Join](https://www.stripecommunity.com/public/clubs/stripe-apps-developers/events/stripe-apps-developers-simplify-building-your-tech-stack-with-ai-qs0kjzpwtj) |
-
 ## Roadmap
 
 - [x] Next.js API backend example
